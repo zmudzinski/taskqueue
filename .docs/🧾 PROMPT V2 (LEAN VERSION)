@@ -1,0 +1,114 @@
+🧾 PROMPT V2 (LEAN VERSION)
+
+You are a senior full-stack engineer and UX designer.
+
+Build a minimal floating task queue app using:
+
+Tauri
+React + Vite
+TypeScript
+Zustand
+🎯 CORE IDEA
+
+This is NOT a kanban board.
+
+This is a focus task queue always visible on screen.
+
+The goal:
+
+user reads emails
+quickly pastes tasks
+always sees current + next tasks
+never switches apps
+🪟 WINDOW
+alwaysOnTop: true
+frameless
+transparent
+resizable
+draggable
+opacity control
+🧠 MODES
+1. FLOATING MODE (default)
+
+Small window showing:
+
+current task (large)
+next 2–3 tasks (smaller)
+
+DONE tasks hidden
+
+Hover → expands window
+
+2. FULL MODE
+full task list
+grouping
+editing
+drag reorder
+📦 DATA MODEL
+type Task = {
+  id: string
+  content: string
+  completed: boolean
+  groupId?: string
+  order: number
+  createdAt: number
+}
+
+type Group = {
+  id: string
+  name: string
+  collapsed: boolean
+}
+✍️ INPUT BEHAVIOR
+Enter → create new task
+Paste:
+split by newline
+each line = new task
+✅ TASK BEHAVIOR
+left circle checkbox
+click = mark done / undo
+done tasks:
+move to "Completed" section
+collapsed by default
+📂 GROUPS
+user can create groups
+tasks can belong to group
+groups are collapsible
+simple UI (no complexity)
+🔀 DRAG & DROP
+reorder tasks
+move between groups
+💾 STORAGE
+save JSON to AppData
+autosave (debounced)
+load on startup
+⚡ UX FEATURES
+always show first active task
+smooth animations
+minimal UI
+keyboard-first interactions
+⌨️ SHORTCUTS
+Enter → new task
+Ctrl/Cmd + V → paste multiple tasks
+Ctrl/Cmd + S → save
+Ctrl/Cmd + Shift + S → toggle window
+🎛 SETTINGS
+opacity
+window size
+sticky mode toggle
+🧲 SNAP BEHAVIOR
+snap window to screen corners on drag
+📁 OUTPUT
+full working project
+no placeholders
+includes:
+package.json
+tauri config
+run instructions
+🚀 GOAL
+
+App must run with:
+
+npm install
+npm run tauri dev
+🔥 END
