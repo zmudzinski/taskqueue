@@ -83,15 +83,15 @@ jobs:
           releaseName: TaskQueue ${{ github.ref_name }}
           releaseBody: |
             ## What's new
-            <!-- opisz zmiany tutaj -->
+            <!-- describe changes here -->
 
-            ### Instalacja (pierwsze uruchomienie na nowym Macu)
-            1. Pobierz **TaskQueue_*_universal.dmg** poniżej i otwórz
-            2. Jeśli macOS zablokuje apkę: **prawy klik na ikonę → Otwórz → Otwórz**
-              *(jednorazowe – kolejne uruchomienia działają normalnie)*
+            ### Installation (first launch on a new Mac)
+            1. Download **TaskQueue_*_universal.dmg** below and open it
+            2. If macOS blocks the app: **right-click the app icon -> Open -> Open**
+              *(one-time only - next launches work normally)*
 
-            ### Aktualizacja
-            Jeśli masz już zainstalowaną poprzednią wersję – apka powiadomi Cię automatycznie.
+            ### Updates
+            If you already have a previous version installed, the app will notify you automatically.
           releaseDraft: false
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
           args: --target universal-apple-darwin
