@@ -3,6 +3,7 @@ export type Task = {
   content: string
   completed: boolean
   groupId?: string
+  sourceTaskId?: string
   order: number
   createdAt: number
 }
@@ -21,11 +22,21 @@ export type AppSettings = {
   windowHeight: number
   stickyMode: boolean
   mode: ViewMode
-  completedCollapsed: boolean
+  hideCompleted: boolean
+  soundsEnabled: boolean
 }
 
 export type PersistedState = {
   tasks: Task[]
   groups: Group[]
   settings: AppSettings
+}
+
+export type ConfirmRequest = {
+  title: string
+  message: string
+  confirmLabel?: string
+  cancelLabel?: string
+  destructive?: boolean
+  onConfirm: () => void
 }
