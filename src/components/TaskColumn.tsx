@@ -10,13 +10,16 @@ type TaskColumnProps = {
   collapsed?: boolean
   taskIds: string[]
   taskMap: Map<string, Task>
+  groupNameMap: Map<string, string>
+  backlogMirrorBySourceId: Map<string, string>
   completingTaskIds: Set<string>
   onToggle: (taskId: string) => void
   onUpdate: (taskId: string, value: string) => void
   onDelete: (taskId: string) => void
-  onCreateTask: (value: string, groupId?: string) => void
-  onCreateTasksFromPaste: (value: string, groupId?: string) => void
-  onCreateGroupCommand: (value: string) => void
+  onAddToBacklog: (taskId: string) => void
+  onRemoveFromBacklog: (taskId: string) => void
+  onCreateTask?: (value: string, groupId?: string) => void
+  onCreateTasksFromPaste?: (value: string, groupId?: string) => void
 }
 
 export function TaskColumn({
@@ -25,13 +28,16 @@ export function TaskColumn({
   collapsed,
   taskIds,
   taskMap,
+  groupNameMap,
+  backlogMirrorBySourceId,
   completingTaskIds,
   onToggle,
   onUpdate,
   onDelete,
+  onAddToBacklog,
+  onRemoveFromBacklog,
   onCreateTask,
   onCreateTasksFromPaste,
-  onCreateGroupCommand,
 }: TaskColumnProps) {
   const { setNodeRef } = useDroppable({ id: `container-${id}` })
   const remainingCount = taskIds.length
@@ -60,29 +66,55 @@ export function TaskColumn({
                   return null
                 }
 
+                const mirroredTaskId = task.groupId ? backlogMirrorBySourceId.get(task.id) : undefined
+
+                let backlogActionMode: 'add' | 'remove' | undefined
+                let onBacklogAction: (() => void) | undefined
+
+                if (!task.completed && task.groupId) {
+                  if (mirroredTaskId) {
+                    backlogActionMode = 'remove'
+                    onBacklogAction = () => onRemoveFromBacklog(mirroredTaskId)
+                  } else {
+                    backlogActionMode = 'add'
+                    onBacklogAction = () => onAddToBacklog(task.id)
+                  }
+                } else if (task.sourceTaskId && !task.groupId) {
+                  backlogActionMode = 'remove'
+                  onBacklogAction = () => onRemoveFromBacklog(task.id)
+                }
+
                 return (
                   <TaskItem
                     key={task.id}
                     task={task}
+                    sourceGroupName={
+                      task.sourceTaskId
+                        ? groupNameMap.get(taskMap.get(task.sourceTaskId)?.groupId ?? '')
+                        : undefined
+                    }
+                    backlogActionMode={backlogActionMode}
                     isCompleting={completingTaskIds.has(task.id)}
                     onToggle={onToggle}
                     onUpdate={onUpdate}
                     onDelete={onDelete}
+                    onBacklogAction={onBacklogAction}
                   />
                 )
               })}
             </div>
           </SortableContext>
 
-          <div className="task-column-composer">
-            <UnifiedComposer
-              groupId={id === 'ungrouped' ? undefined : id}
-              placeholder={id === 'ungrouped' ? 'Add task, or /g Group Name' : `Add task to ${title || 'group'}...`}
-              onCreateTask={onCreateTask}
-              onCreateTasksFromPaste={onCreateTasksFromPaste}
-              onCreateGroup={onCreateGroupCommand}
-            />
-          </div>
+          {onCreateTask ? (
+            <div className="task-column-composer">
+              <UnifiedComposer
+                groupId={id}
+                placeholder={`Add task to ${title || 'group'}...`}
+                onCreateTask={onCreateTask}
+                onCreateTasksFromPaste={onCreateTasksFromPaste}
+              />
+            </div>
+          ) : null}
         </div>
       )}
     </section>

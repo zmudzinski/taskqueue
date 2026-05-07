@@ -5,8 +5,7 @@ type UnifiedComposerProps = {
   groupId?: string
   placeholder?: string
   onCreateTask: (value: string, groupId?: string) => void
-  onCreateTasksFromPaste: (value: string, groupId?: string) => void
-  onCreateGroup: (value: string) => void
+  onCreateTasksFromPaste?: (value: string, groupId?: string) => void
 }
 
 export function UnifiedComposer({
@@ -14,26 +13,8 @@ export function UnifiedComposer({
   placeholder,
   onCreateTask,
   onCreateTasksFromPaste,
-  onCreateGroup,
 }: UnifiedComposerProps) {
   const [value, setValue] = useState('')
-
-  const createFromCommand = (rawInput: string) => {
-    const normalized = rawInput.trim()
-    if (!normalized) {
-      return false
-    }
-
-    if (normalized.toLowerCase().startsWith('/g ')) {
-      const groupName = normalized.slice(3).trim()
-      if (groupName) {
-        onCreateGroup(groupName)
-      }
-      return true
-    }
-
-    return false
-  }
 
   const submit = () => {
     const normalized = value.trim()
@@ -41,9 +22,7 @@ export function UnifiedComposer({
       return
     }
 
-    if (!createFromCommand(normalized)) {
-      onCreateTask(normalized, groupId)
-    }
+    onCreateTask(normalized, groupId)
 
     setValue('')
   }
@@ -61,12 +40,8 @@ export function UnifiedComposer({
       return
     }
 
-    if (payload.trim().toLowerCase().startsWith('/g ')) {
-      return
-    }
-
     event.preventDefault()
-    onCreateTasksFromPaste(payload, groupId)
+    onCreateTasksFromPaste?.(payload, groupId)
     setValue('')
   }
 
@@ -77,7 +52,7 @@ export function UnifiedComposer({
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={onKeyDown}
         onPaste={onPaste}
-        placeholder={placeholder ?? 'Add task, or /g Group Name'}
+        placeholder={placeholder ?? 'Add task...'}
       />
 
       <Button type="button" className="composer-add" size="icon" aria-label="Add" onClick={submit}>

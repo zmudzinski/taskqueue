@@ -6,12 +6,24 @@ import type { Task } from '../types'
 type TaskItemProps = {
   task: Task
   isCompleting?: boolean
+  sourceGroupName?: string
+  backlogActionMode?: 'add' | 'remove'
   onToggle: (taskId: string) => void
   onUpdate: (taskId: string, value: string) => void
   onDelete: (taskId: string) => void
+  onBacklogAction?: () => void
 }
 
-export function TaskItem({ task, isCompleting, onToggle, onUpdate, onDelete }: TaskItemProps) {
+export function TaskItem({
+  task,
+  isCompleting,
+  sourceGroupName,
+  backlogActionMode,
+  onToggle,
+  onUpdate,
+  onDelete,
+  onBacklogAction,
+}: TaskItemProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(task.content)
 
@@ -32,7 +44,14 @@ export function TaskItem({ task, isCompleting, onToggle, onUpdate, onDelete }: T
       className={`task-item ${task.completed ? 'is-done' : ''} ${isCompleting ? 'is-completing' : ''}`}
     >
       <button className="task-handle" type="button" {...attributes} {...listeners} aria-label="Drag task">
-        ⋮
+        <span className="drag-dots" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+          <span />
+          <span />
+          <span />
+        </span>
       </button>
 
       <button
@@ -45,6 +64,7 @@ export function TaskItem({ task, isCompleting, onToggle, onUpdate, onDelete }: T
       </button>
 
       <div className="task-body">
+        {sourceGroupName ? <span className="task-origin-badge">{sourceGroupName}</span> : null}
         {editing ? (
           <input
             autoFocus
@@ -81,9 +101,24 @@ export function TaskItem({ task, isCompleting, onToggle, onUpdate, onDelete }: T
         )}
       </div>
 
-      <button className="task-delete" type="button" onClick={() => onDelete(task.id)} aria-label="Delete task">
-        ×
-      </button>
+      <div className="task-actions">
+        {backlogActionMode && onBacklogAction ? (
+          <button
+            className={`task-action task-backlog-btn ${backlogActionMode === 'remove' ? 'is-remove' : 'is-add'}`}
+            type="button"
+            aria-label={backlogActionMode === 'remove' ? 'Remove from backlog' : 'Add to backlog'}
+            title={backlogActionMode === 'remove' ? 'Remove from backlog' : 'Add to backlog'}
+            onClick={onBacklogAction}
+          >
+            {backlogActionMode === 'remove' ? '↓' : '↑'}
+          </button>
+        ) : null}
+
+        <button className="task-delete" type="button" onClick={() => onDelete(task.id)} aria-label="Delete task">
+          ×
+        </button>
+      </div>
+
     </article>
   )
 }

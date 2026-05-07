@@ -1,4 +1,5 @@
 import type { MouseEvent } from 'react'
+import { Minus, Play, Settings2, X } from 'lucide-react'
 import { Button } from './ui/Button'
 
 type TitleBarProps = {
@@ -14,7 +15,7 @@ type TitleBarProps = {
 }
 
 export function TitleBar({
-  mode,
+  mode: _mode,
   settingsOpen,
   saveStatusLabel,
   onStartDrag,
@@ -29,6 +30,7 @@ export function TitleBar({
     if (target.closest('button, input, select, textarea, [data-no-drag="true"]')) {
       return
     }
+    event.preventDefault()
     onStartDrag()
   }
 
@@ -50,23 +52,24 @@ export function TitleBar({
       <div className="titlebar-drag-space" />
 
       <div className="titlebar-right" data-no-drag="true">
-        <Button variant="outline" size="sm" onClick={onToggleMode}>
-          {mode === 'floating' ? 'List' : 'Play'}
+        <Button variant="outline" size="icon" className="titlebar-icon-btn titlebar-mode-btn" aria-label="Switch to floating mode" onClick={onToggleMode}>
+          <Play />
         </Button>
-        <Button variant="ghost" size="icon" aria-label="Minimize window" onClick={onMinimize}>
-          -
+        <Button variant="ghost" size="icon" className="titlebar-icon-btn" aria-label="Minimize window" onClick={onMinimize}>
+          <Minus />
         </Button>
         <Button
           variant={settingsOpen ? 'default' : 'ghost'}
           size="icon"
           aria-label="Open settings"
-          className={`settings-trigger ${settingsOpen ? 'active' : ''}`}
+          data-settings-trigger="true"
+          className={`settings-trigger titlebar-icon-btn ${settingsOpen ? 'active' : ''}`}
           onClick={onToggleSettings}
         >
-          ⚙
+          <Settings2 />
         </Button>
-        <Button variant="destructive" size="icon" aria-label="Close window" onClick={onClose}>
-          ×
+        <Button variant="destructive" size="icon" className="titlebar-icon-btn titlebar-close-btn" aria-label="Close window" onClick={onClose}>
+          <X />
         </Button>
       </div>
     </header>

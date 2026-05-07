@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { Group, Task } from '../types'
@@ -9,30 +10,42 @@ type SortableGroupSectionProps = {
   group: Group
   taskIds: string[]
   taskMap: Map<string, Task>
+  groupNameMap: Map<string, string>
+  backlogMirrorBySourceId: Map<string, string>
+  doneCount: number
+  totalCount: number
   completingTaskIds: Set<string>
   onToggleTask: (taskId: string) => void
   onUpdateTask: (taskId: string, value: string) => void
   onDeleteTask: (taskId: string) => void
+  onAddToBacklog: (taskId: string) => void
+  onRemoveFromBacklog: (taskId: string) => void
   onToggleGroupCollapsed: (groupId: string) => void
   onRenameGroup: (groupId: string, name: string) => void
+  onDeleteGroup: (groupId: string) => void
   onCreateTaskInGroup: (value: string, groupId?: string) => void
   onCreateTasksFromPaste: (value: string, groupId?: string) => void
-  onCreateGroupCommand: (value: string) => void
 }
 
 export function SortableGroupSection({
   group,
   taskIds,
   taskMap,
+  groupNameMap,
+  backlogMirrorBySourceId,
+  doneCount,
+  totalCount,
   completingTaskIds,
   onToggleTask,
   onUpdateTask,
   onDeleteTask,
+  onAddToBacklog,
+  onRemoveFromBacklog,
   onToggleGroupCollapsed,
   onRenameGroup,
+  onDeleteGroup,
   onCreateTaskInGroup,
   onCreateTasksFromPaste,
-  onCreateGroupCommand,
 }: SortableGroupSectionProps) {
   const [renaming, setRenaming] = useState(false)
   const [nameDraft, setNameDraft] = useState(group.name)
@@ -49,7 +62,9 @@ export function SortableGroupSection({
 
   return (
     <section ref={setNodeRef} style={style} className="group-block" data-group-id={group.id}>
-      <header className="group-header">
+      <header
+        className="group-header"
+      >
         <Button type="button" variant="ghost" size="icon" onClick={() => onToggleGroupCollapsed(group.id)}>
           {group.collapsed ? '▸' : '▾'}
         </Button>
@@ -76,29 +91,52 @@ export function SortableGroupSection({
             }}
           />
         ) : (
-          <button
-            type="button"
-            className="group-name"
-            onDoubleClick={() => {
-              setNameDraft(group.name)
-              setRenaming(true)
-            }}
-          >
-            {group.name}
-          </button>
+          <div className="group-name-row">
+            <button
+              type="button"
+              className="group-name"
+              onDoubleClick={() => {
+                setNameDraft(group.name)
+                setRenaming(true)
+              }}
+            >
+              {group.name}
+            </button>
+            {group.collapsed ? <span className="group-progress-badge">{doneCount}/{totalCount}</span> : null}
+          </div>
         )}
 
-        <Button
-          type="button"
-          className="group-drag-handle"
-          variant="ghost"
-          size="icon"
-          aria-label="Move group"
-          {...attributes}
-          {...listeners}
-        >
-          ⋮
-        </Button>
+        <div className="group-header-actions">
+          {group.id !== 'primary-today' ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Delete group"
+              onClick={() => onDeleteGroup(group.id)}
+            >
+              <Trash2 size={14} />
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            className="group-drag-handle"
+            variant="ghost"
+            size="icon"
+            aria-label="Move group"
+            {...attributes}
+            {...listeners}
+          >
+            <span className="drag-dots" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+              <span />
+              <span />
+              <span />
+            </span>
+          </Button>
+        </div>
       </header>
 
       <TaskColumn
@@ -107,13 +145,16 @@ export function SortableGroupSection({
         collapsed={group.collapsed}
         taskIds={taskIds}
         taskMap={taskMap}
+        groupNameMap={groupNameMap}
+        backlogMirrorBySourceId={backlogMirrorBySourceId}
         completingTaskIds={completingTaskIds}
         onToggle={onToggleTask}
         onUpdate={onUpdateTask}
         onDelete={onDeleteTask}
+        onAddToBacklog={onAddToBacklog}
+        onRemoveFromBacklog={onRemoveFromBacklog}
         onCreateTask={onCreateTaskInGroup}
         onCreateTasksFromPaste={onCreateTasksFromPaste}
-        onCreateGroupCommand={onCreateGroupCommand}
       />
     </section>
   )
