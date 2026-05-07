@@ -31,7 +31,8 @@ const defaultSettings: AppSettings = {
   windowHeight: 420,
   stickyMode: true,
   mode: 'floating',
-  completedCollapsed: true,
+  hideCompleted: false,
+  soundsEnabled: true,
 }
 
 type HistorySnapshot = {
@@ -49,21 +50,24 @@ type QueueStore = {
   hydrate: (state: PersistedState) => void
   addTask: (content: string, groupId?: string) => void
   addTasksFromPaste: (raw: string, groupId?: string) => void
+  addTaskToBacklog: (taskId: string) => void
   toggleTask: (id: string) => void
   updateTask: (id: string, content: string) => void
   removeTask: (id: string) => void
   createGroup: (name: string) => void
+  removeGroup: (id: string) => void
   renameGroup: (id: string, name: string) => void
   toggleGroupCollapsed: (id: string) => void
   reorderGroup: (groupId: string, targetGroupId?: string) => void
   reorderTask: (taskId: string, targetContainer: string, targetTaskId?: string) => void
-  setTaskGroup: (taskId: string, groupId?: string) => void
   setMode: (mode: ViewMode) => void
   toggleMode: () => void
   setOpacity: (opacity: number) => void
   setWindowSize: (width: number, height: number) => void
   setStickyMode: (sticky: boolean) => void
-  toggleCompletedCollapsed: () => void
+  setHideCompleted: (hide: boolean) => void
+  setSoundsEnabled: (enabled: boolean) => void
+  purgeCompleted: () => void
   undoLastAction: () => void
   getPersistedState: () => PersistedState
 }
@@ -78,29 +82,34 @@ function cloneGroups(groups: Group[]): Group[] {
   return groups.map((group) => ({ ...group }))
 }
 
-function createTask(content: string, index: number, groupId?: string): Task {
+function arrayMove<T>(array: T[], from: number, to: number): T[] {
+  const next = [...array]
+  next.splice(to < 0 ? next.length + to : to, 0, next.splice(from, 1)[0])
+  return next
+}
+
+function createTask(content: string, index: number, groupId?: string, sourceTaskId?: string): Task {
   return {
     id: crypto.randomUUID(),
     content,
     completed: false,
     groupId,
+    sourceTaskId,
     order: index,
     createdAt: Date.now(),
   }
 }
 
 function normalizeTasks(tasks: Task[], groups: Group[]): Task[] {
-  const activeByContainer = new Map<string, Task[]>()
-  activeByContainer.set('ungrouped', [])
+  const byContainer = new Map<string, Task[]>()
+  byContainer.set('ungrouped', [])
   for (const group of groups) {
-    activeByContainer.set(group.id, [])
+    byContainer.set(group.id, [])
   }
 
-  const completed = tasks.filter((task) => task.completed).sort((a, b) => a.order - b.order)
-
-  for (const task of tasks.filter((task) => !task.completed).sort((a, b) => a.order - b.order)) {
-    const key = task.groupId && activeByContainer.has(task.groupId) ? task.groupId : 'ungrouped'
-    const list = activeByContainer.get(key)
+  for (const task of [...tasks].sort((a, b) => a.order - b.order)) {
+    const key = task.groupId && byContainer.has(task.groupId) ? task.groupId : 'ungrouped'
+    const list = byContainer.get(key)
     if (list) {
       list.push({ ...task, groupId: key === 'ungrouped' ? undefined : key })
     }
@@ -108,13 +117,11 @@ function normalizeTasks(tasks: Task[], groups: Group[]): Task[] {
 
   const normalized: Task[] = []
   for (const containerId of ['ungrouped', ...groups.map((group) => group.id)]) {
-    const list = activeByContainer.get(containerId)
+    const list = byContainer.get(containerId)
     if (list) {
       normalized.push(...list)
     }
   }
-
-  normalized.push(...completed)
 
   return normalized.map((task, index) => ({
     ...task,
@@ -148,7 +155,9 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
 
   hydrate: (state) => {
     const groups = ensurePrimaryGroup(state.groups ?? [])
-    const tasks = normalizeTasks(state.tasks ?? [], groups)
+    // Discard any lingering orphan tasks (no group and not a backlog mirror).
+    const rawTasks = (state.tasks ?? []).filter((t) => t.groupId || t.sourceTaskId)
+    const tasks = normalizeTasks(rawTasks, groups)
     set({
       tasks,
       groups,
@@ -193,12 +202,62 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
     })
   },
 
+  addTaskToBacklog: (taskId) => {
+    set((state) => {
+      const sourceTask = state.tasks.find((task) => task.id === taskId)
+      if (!sourceTask || sourceTask.completed || !sourceTask.groupId) {
+        return state
+      }
+
+      const alreadyMirrored = state.tasks.some(
+        (task) => task.sourceTaskId === sourceTask.id && !task.completed,
+      )
+
+      if (alreadyMirrored) {
+        return state
+      }
+
+      const mirrorTask = createTask(
+        sourceTask.content,
+        state.tasks.length + 1,
+        undefined,
+        sourceTask.id,
+      )
+
+      const nextTasks = normalizeTasks([...state.tasks, mirrorTask], state.groups)
+      return withHistory(state, nextTasks, state.groups)
+    })
+  },
+
   toggleTask: (id) => {
     set((state) => {
+      const toggledTask = state.tasks.find((task) => task.id === id)
+      if (!toggledTask) {
+        return state
+      }
+
+      // Completing a backlog mirror marks its source task done and removes the mirror.
+      if (toggledTask.sourceTaskId && !toggledTask.completed) {
+        const nextTasks = normalizeTasks(
+          state.tasks
+            .filter((task) => task.id !== id)
+            .map((task) =>
+              task.id === toggledTask.sourceTaskId ? { ...task, completed: true } : task,
+            ),
+          state.groups,
+        )
+        return withHistory(state, nextTasks, state.groups)
+      }
+
+      const nextCompleted = !toggledTask.completed
+
       const nextTasks = normalizeTasks(
-        state.tasks.map((task) => (task.id === id ? { ...task, completed: !task.completed } : task)),
+        state.tasks
+          .filter((task) => !(nextCompleted && task.sourceTaskId === toggledTask.id))
+          .map((task) => (task.id === id ? { ...task, completed: nextCompleted } : task)),
         state.groups,
       )
+
       return withHistory(state, nextTasks, state.groups)
     })
   },
@@ -217,8 +276,24 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
 
   removeTask: (id) => {
     set((state) => {
+      const removingTask = state.tasks.find((task) => task.id === id)
+      if (!removingTask) {
+        return state
+      }
+
       const nextTasks = normalizeTasks(
-        state.tasks.filter((task) => task.id !== id),
+        state.tasks.filter((task) => {
+          if (task.id === id) {
+            return false
+          }
+
+          // Removing a source task also removes its backlog mirrors.
+          if (!removingTask.sourceTaskId && task.sourceTaskId === id) {
+            return false
+          }
+
+          return true
+        }),
         state.groups,
       )
       return withHistory(state, nextTasks, state.groups)
@@ -234,6 +309,30 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
     set((state) => {
       const nextGroups = ensurePrimaryGroup([...state.groups, { id: crypto.randomUUID(), name: normalized, collapsed: false }])
       const nextTasks = normalizeTasks(state.tasks, nextGroups)
+      return withHistory(state, nextTasks, nextGroups)
+    })
+  },
+
+  removeGroup: (id) => {
+    set((state) => {
+      if (id === PRIMARY_GROUP_ID) {
+        return state
+      }
+
+      const exists = state.groups.some((group) => group.id === id)
+      if (!exists) {
+        return state
+      }
+
+      const nextGroups = ensurePrimaryGroup(state.groups.filter((group) => group.id !== id))
+
+      const nextTasks = normalizeTasks(
+        state.tasks.map((task) =>
+          task.groupId === id ? { ...task, groupId: PRIMARY_GROUP_ID } : task,
+        ),
+        nextGroups,
+      )
+
       return withHistory(state, nextTasks, nextGroups)
     })
   },
@@ -270,20 +369,16 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
         return state
       }
 
-      const nextGroups = [...state.groups]
-      const [movingGroup] = nextGroups.splice(sourceIndex, 1)
-
       const targetIndex =
-        targetGroupId == null ? nextGroups.length : nextGroups.findIndex((group) => group.id === targetGroupId)
+        targetGroupId == null
+          ? state.groups.length - 1
+          : state.groups.findIndex((group) => group.id === targetGroupId)
 
-      if (targetIndex === -1) {
-        nextGroups.push(movingGroup)
-      } else {
-        nextGroups.splice(targetIndex, 0, movingGroup)
+      if (targetIndex === -1 || targetIndex === sourceIndex) {
+        return state
       }
 
-      const normalizedGroups = ensurePrimaryGroup(nextGroups)
-
+      const normalizedGroups = ensurePrimaryGroup(arrayMove(state.groups, sourceIndex, targetIndex))
       const nextTasks = normalizeTasks(state.tasks, normalizedGroups)
       return withHistory(state, nextTasks, normalizedGroups)
     })
@@ -292,18 +387,18 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
   reorderTask: (taskId, targetContainer, targetTaskId) => {
     set((state) => {
       const movingTask = state.tasks.find((task) => task.id === taskId)
-      if (!movingTask || movingTask.completed) {
+      if (!movingTask) {
         return state
       }
 
-      const activeTasks = state.tasks.filter((task) => !task.completed).sort((a, b) => a.order - b.order)
+      const orderedTasks = [...state.tasks].sort((a, b) => a.order - b.order)
       const containers = new Map<string, Task[]>()
       containers.set('ungrouped', [])
       for (const group of state.groups) {
         containers.set(group.id, [])
       }
 
-      for (const task of activeTasks) {
+      for (const task of orderedTasks) {
         const key = task.groupId && containers.has(task.groupId) ? task.groupId : 'ungrouped'
         const list = containers.get(key)
         if (list) {
@@ -323,14 +418,12 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
         return state
       }
 
-      const [detached] = sourceList.splice(sourceIndex, 1)
-      const targetIndex = targetTaskId == null ? -1 : targetList.findIndex((task) => task.id === targetTaskId)
-      const insertIndex = targetIndex === -1 ? targetList.length : targetIndex
+      const detached = { ...sourceList[sourceIndex], groupId: targetContainer === 'ungrouped' ? undefined : targetContainer }
+      sourceList.splice(sourceIndex, 1)
 
-      targetList.splice(insertIndex, 0, {
-        ...detached,
-        groupId: targetContainer === 'ungrouped' ? undefined : targetContainer,
-      })
+      const targetIndex = targetTaskId == null ? -1 : targetList.findIndex((task) => task.id === targetTaskId)
+      const insertIndex = targetIndex >= 0 ? targetIndex : targetList.length
+      targetList.splice(insertIndex, 0, detached)
 
       const ordered: Task[] = []
       for (const containerId of ['ungrouped', ...state.groups.map((group) => group.id)]) {
@@ -339,19 +432,8 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
           ordered.push(...list)
         }
       }
-      ordered.push(...state.tasks.filter((task) => task.completed).sort((a, b) => a.order - b.order))
 
       const nextTasks = ordered.map((task, index) => ({ ...task, order: index + 1 }))
-      return withHistory(state, nextTasks, state.groups)
-    })
-  },
-
-  setTaskGroup: (taskId, groupId) => {
-    set((state) => {
-      const nextTasks = normalizeTasks(
-        state.tasks.map((task) => (task.id === taskId ? { ...task, groupId } : task)),
-        state.groups,
-      )
       return withHistory(state, nextTasks, state.groups)
     })
   },
@@ -399,13 +481,32 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
     }))
   },
 
-  toggleCompletedCollapsed: () => {
+  setHideCompleted: (hideCompleted) => {
     set((state) => ({
       settings: {
         ...state.settings,
-        completedCollapsed: !state.settings.completedCollapsed,
+        hideCompleted,
       },
     }))
+  },
+
+  setSoundsEnabled: (soundsEnabled) => {
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        soundsEnabled,
+      },
+    }))
+  },
+
+  purgeCompleted: () => {
+    set((state) => {
+      const nextTasks = normalizeTasks(
+        state.tasks.filter((task) => !task.completed),
+        state.groups,
+      )
+      return withHistory(state, nextTasks, state.groups)
+    })
   },
 
   undoLastAction: () => {
