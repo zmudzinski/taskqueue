@@ -1,214 +1,49 @@
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ClipboardEvent as ReactClipboardEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
-} from 'react'
-import {
+  KeyboardSensor,
+  closestCorners,
   DndContext,
   DragOverlay,
-  MouseSensor,
-  closestCenter,
-  useDroppable,
+  PointerSensor,
+  pointerWithin,
+  rectIntersection,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { loadState } from './lib/persistence'
 import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { loadState, saveState } from './lib/persistence'
-import {
-  applyStickyMode,
   applyWindowSize,
+  closeWindow,
+  minimizeWindow,
   snapWindowToCorner,
-  toggleWindowVisibility,
+  startWindowDragging,
 } from './lib/window-manager'
+import { useAutosave } from './hooks/useAutosave'
+import { useGlobalShortcuts } from './hooks/useGlobalShortcuts'
+import { useWindowSync } from './hooks/useWindowSync'
 import { useTaskQueueStore } from './store/useTaskQueueStore'
-import type { Group, Task } from './types'
+import { FloatingModePanel } from './components/FloatingModePanel'
+import { SettingsMenu } from './components/SettingsMenu'
+import { SortableGroupSection } from './components/SortableGroupSection'
+import { TaskColumn } from './components/TaskColumn'
+import { TitleBar } from './components/TitleBar'
+import type { Task } from './types'
 import './App.css'
 
-type SortableTaskProps = {
-  task: Task
-  groups: Group[]
-  onToggle: (taskId: string) => void
-  onUpdate: (taskId: string, value: string) => void
-  onDelete: (taskId: string) => void
-  onGroupChange: (taskId: string, groupId?: string) => void
-}
-
-function SortableTaskCard({
-  task,
-  groups,
-  onToggle,
-  onUpdate,
-  onDelete,
-  onGroupChange,
-}: SortableTaskProps) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(task.content)
-
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: `task-${task.id}`,
-  })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.45 : 1,
+function DragPreview({ task }: { task?: Task }) {
+  if (!task) {
+    return null
   }
 
   return (
-    <article ref={setNodeRef} style={style} className="task-card">
-      <button
-        className={`checkbox ${task.completed ? 'checked' : ''}`}
-        type="button"
-        onClick={() => onToggle(task.id)}
-        aria-label={task.completed ? 'Undo task' : 'Mark as done'}
-      />
-
-      <div className="task-main" {...attributes} {...listeners}>
-        {editing ? (
-          <input
-            autoFocus
-            className="task-edit-input"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onBlur={() => {
-              onUpdate(task.id, draft)
-              setEditing(false)
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                onUpdate(task.id, draft)
-                setEditing(false)
-              }
-              if (event.key === 'Escape') {
-                setDraft(task.content)
-                setEditing(false)
-              }
-            }}
-          />
-        ) : (
-          <button
-            type="button"
-            className="task-content"
-            onDoubleClick={() => {
-              setDraft(task.content)
-              setEditing(true)
-            }}
-          >
-            {task.content}
-          </button>
-        )}
-      </div>
-
-      <select
-        className="group-select"
-        value={task.groupId ?? ''}
-        onChange={(event) => onGroupChange(task.id, event.target.value || undefined)}
-      >
-        <option value="">Inbox</option>
-        {groups.map((group) => (
-          <option key={group.id} value={group.id}>
-            {group.name}
-          </option>
-        ))}
-      </select>
-
-      <button className="task-delete" type="button" onClick={() => onDelete(task.id)}>
-        x
-      </button>
+    <article className="task-item drag-preview">
+      <div className="task-check" />
+      <div className="task-body">{task.content}</div>
     </article>
-  )
-}
-
-function StaticTaskPreview({ task }: { task: Task }) {
-  return (
-    <article className="task-card dragging-preview">
-      <button className="checkbox" type="button" aria-label="Task" />
-      <div className="task-main">
-        <div className="task-content">{task.content}</div>
-      </div>
-    </article>
-  )
-}
-
-type ContainerProps = {
-  id: string
-  title: string
-  collapsed?: boolean
-  taskIds: string[]
-  taskMap: Map<string, Task>
-  groups: Group[]
-  onToggle: (taskId: string) => void
-  onUpdate: (taskId: string, value: string) => void
-  onDelete: (taskId: string) => void
-  onGroupChange: (taskId: string, groupId?: string) => void
-}
-
-function TaskContainer({
-  id,
-  title,
-  collapsed,
-  taskIds,
-  taskMap,
-  groups,
-  onToggle,
-  onUpdate,
-  onDelete,
-  onGroupChange,
-}: ContainerProps) {
-  const { setNodeRef } = useDroppable({
-    id: `container-${id}`,
-  })
-
-  return (
-    <section ref={setNodeRef} className="queue-group" data-container-id={`container-${id}`}>
-      <header className="queue-group-title">{title}</header>
-
-      {!collapsed && (
-        <SortableContext
-          id={`container-${id}`}
-          items={taskIds.map((taskId) => `task-${taskId}`)}
-          strategy={verticalListSortingStrategy}
-        >
-          <div className="task-list">
-            {taskIds.map((taskId) => {
-              const task = taskMap.get(taskId)
-              if (!task) {
-                return null
-              }
-
-              return (
-                <SortableTaskCard
-                  key={task.id}
-                  task={task}
-                  groups={groups}
-                  onToggle={onToggle}
-                  onUpdate={onUpdate}
-                  onDelete={onDelete}
-                  onGroupChange={onGroupChange}
-                />
-              )
-            })}
-          </div>
-        </SortableContext>
-      )}
-    </section>
   )
 }
 
@@ -217,13 +52,9 @@ function App() {
     tasks,
     groups,
     settings,
-    inputValue,
-    groupDraft,
     loaded,
     setLoaded,
     hydrate,
-    setInputValue,
-    setGroupDraft,
     addTask,
     addTasksFromPaste,
     toggleTask,
@@ -232,29 +63,64 @@ function App() {
     createGroup,
     renameGroup,
     toggleGroupCollapsed,
+    reorderGroup,
     reorderTask,
-    setTaskGroup,
+    setMode,
+    toggleMode,
     setOpacity,
-    setWindowHeight,
-    setWindowWidth,
+    setWindowSize,
     setStickyMode,
     toggleCompletedCollapsed,
-    toggleMode,
+    undoLastAction,
     getPersistedState,
   } = useTaskQueueStore()
 
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
-  const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null)
-  const [groupRenameDraft, setGroupRenameDraft] = useState('')
-  const autoSaveTimer = useRef<number | null>(null)
+  const [completingTaskIds, setCompletingTaskIds] = useState<Set<string>>(new Set())
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
+  const [updateVersion, setUpdateVersion] = useState<string | null>(null)
+  const settingsMenuRef = useRef<HTMLElement | null>(null)
+  const completionTimersRef = useRef<Map<string, number>>(new Map())
+  const lastModeRef = useRef(settings.mode)
+  const fullModeSizeRef = useRef<{ width: number; height: number } | null>(null)
 
-  const sensors = useSensors(useSensor(MouseSensor))
+  // Listen for update-available events emitted by the Rust updater (release builds only)
+  useEffect(() => {
+    if (!('__TAURI_INTERNALS__' in window)) return
+    let unlisten: (() => void) | undefined
+    import('@tauri-apps/api/event')
+      .then(({ listen }) =>
+        listen<string>('update-available', (event) => setUpdateVersion(event.payload)),
+      )
+      .then((fn) => {
+        unlisten = fn
+      })
+    return () => {
+      unlisten?.()
+    }
+  }, [])
+
+  const handleInstallUpdate = async () => {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core')
+      await invoke('install_update')
+    } catch (error) {
+      console.error('Update install failed', error)
+    }
+  }
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
 
   const sortedTasks = useMemo(() => [...tasks].sort((a, b) => a.order - b.order), [tasks])
   const activeTasks = useMemo(() => sortedTasks.filter((task) => !task.completed), [sortedTasks])
   const completedTasks = useMemo(() => sortedTasks.filter((task) => task.completed), [sortedTasks])
-
   const taskMap = useMemo(() => new Map(sortedTasks.map((task) => [task.id, task])), [sortedTasks])
+  const groupNameMap = useMemo(() => new Map(groups.map((group) => [group.id, group.name])), [groups])
+  const floatingTasks = useMemo(() => activeTasks, [activeTasks])
 
   const ungroupedTaskIds = useMemo(
     () => activeTasks.filter((task) => !task.groupId).map((task) => task.id),
@@ -269,21 +135,15 @@ function App() {
 
     for (const task of activeTasks) {
       if (task.groupId && mapping.has(task.groupId)) {
-        const list = mapping.get(task.groupId)
-        if (list) {
-          list.push(task.id)
-        }
+        mapping.get(task.groupId)?.push(task.id)
       }
     }
 
     return mapping
   }, [activeTasks, groups])
 
-  const currentTask = activeTasks[0]
-  const nextTasks = activeTasks.slice(1, 4)
-
   useEffect(() => {
-    document.documentElement.style.setProperty('--app-opacity', String(settings.opacity))
+    document.documentElement.style.setProperty('--surface-alpha', String(settings.opacity))
   }, [settings.opacity])
 
   useEffect(() => {
@@ -314,82 +174,77 @@ function App() {
     }
   }, [hydrate, setLoaded])
 
-  useEffect(() => {
-    if (!loaded) {
-      return
-    }
+  useAutosave({
+    loaded,
+    trackedTasks: tasks,
+    trackedGroups: groups,
+    trackedSettings: settings,
+    getPersistedState,
+    onSaved: setLastSavedAt,
+  })
 
-    if (autoSaveTimer.current) {
-      window.clearTimeout(autoSaveTimer.current)
-    }
-
-    autoSaveTimer.current = window.setTimeout(() => {
-      saveState(getPersistedState()).catch((error) => {
-        console.error('Autosave failed', error)
-      })
-    }, 280)
-
-    return () => {
-      if (autoSaveTimer.current) {
-        window.clearTimeout(autoSaveTimer.current)
-      }
-    }
-  }, [getPersistedState, loaded, tasks, groups, settings])
+  useWindowSync({ loaded, settings, setWindowSize })
+  useGlobalShortcuts({ getPersistedState, undoLastAction })
 
   useEffect(() => {
-    applyWindowSize(settings.windowWidth, settings.windowHeight).catch((error) => {
-      console.error('Could not set size', error)
-    })
-  }, [settings.windowHeight, settings.windowWidth])
-
-  useEffect(() => {
-    applyStickyMode(settings.stickyMode).catch((error) => {
-      console.error('Could not set always on top', error)
-    })
-  }, [settings.stickyMode])
-
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      const mod = event.metaKey || event.ctrlKey
-      if (!mod) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!settingsOpen) {
         return
       }
 
-      const key = event.key.toLowerCase()
-
-      if (key === 's' && event.shiftKey) {
-        event.preventDefault()
-        toggleWindowVisibility().catch((error) => {
-          console.error('Could not toggle window visibility', error)
-        })
+      const target = event.target as Node | null
+      if (target && settingsMenuRef.current?.contains(target)) {
+        return
       }
 
-      if (key === 's' && !event.shiftKey) {
-        event.preventDefault()
-        saveState(getPersistedState()).catch((error) => {
-          console.error('Manual save failed', error)
-        })
-      }
+      setSettingsOpen(false)
     }
 
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [getPersistedState])
+    window.addEventListener('mousedown', handleClickOutside)
+    return () => window.removeEventListener('mousedown', handleClickOutside)
+  }, [settingsOpen])
 
   const onDragStart = (event: DragStartEvent) => {
     const id = String(event.active.id)
     if (id.startsWith('task-')) {
       setActiveTaskId(id.replace('task-', ''))
+      return
     }
+  }
+
+  const collisionDetection: CollisionDetection = (args) => {
+    const pointerCollisions = pointerWithin(args)
+    if (pointerCollisions.length) {
+      return pointerCollisions
+    }
+
+    const rectCollisions = rectIntersection(args)
+    if (rectCollisions.length) {
+      return rectCollisions
+    }
+
+    return closestCorners(args)
   }
 
   const onDragEnd = (event: DragEndEvent) => {
     const activeId = String(event.active.id)
     const overId = event.over ? String(event.over.id) : null
-
     setActiveTaskId(null)
 
-    if (!overId || !activeId.startsWith('task-')) {
+    if (!overId) {
+      return
+    }
+
+    if (activeId.startsWith('group-')) {
+      const groupId = activeId.replace('group-', '')
+      const targetGroupId = overId.startsWith('group-') ? overId.replace('group-', '') : undefined
+      if (targetGroupId && targetGroupId !== groupId) {
+        reorderGroup(groupId, targetGroupId)
+      }
+      return
+    }
+
+    if (!activeId.startsWith('task-')) {
       return
     }
 
@@ -410,244 +265,236 @@ function App() {
     }
   }
 
-  const onQuickInputKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') {
-      event.preventDefault()
-      addTask(inputValue)
-    }
+  const onComposerCreateTask = (value: string, groupId?: string) => {
+    addTask(value, groupId)
   }
 
-  const onQuickInputPaste = (event: ReactClipboardEvent<HTMLInputElement>) => {
-    const payload = event.clipboardData.getData('text')
-    if (!payload.includes('\n')) {
+  const onComposerCreateGroup = (value: string) => {
+    createGroup(value)
+  }
+
+  const onComposerPaste = (value: string, groupId?: string) => {
+    addTasksFromPaste(value, groupId)
+  }
+
+  const onToggleTaskAnimated = (taskId: string) => {
+    const task = taskMap.get(taskId)
+    if (!task) {
       return
     }
 
-    event.preventDefault()
-    addTasksFromPaste(payload)
+    if (task.completed) {
+      toggleTask(taskId)
+      return
+    }
+
+    setCompletingTaskIds((current) => {
+      const next = new Set(current)
+      next.add(taskId)
+      return next
+    })
+
+    const timerId = window.setTimeout(() => {
+      toggleTask(taskId)
+      setCompletingTaskIds((current) => {
+        const next = new Set(current)
+        next.delete(taskId)
+        return next
+      })
+      completionTimersRef.current.delete(taskId)
+    }, 220)
+
+    completionTimersRef.current.set(taskId, timerId)
   }
+
+  const onMinimize = () => {
+    minimizeWindow().catch((error) => {
+      console.error('Could not minimize window', error)
+    })
+  }
+
+  const onClose = () => {
+    if (!window.confirm('Czy na pewno chcesz zamknac aplikacje?')) {
+      return
+    }
+
+    closeWindow().catch((error) => {
+      console.error('Could not close window', error)
+    })
+  }
+
+  const onTopBarKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key === 'Escape' && settingsOpen) {
+      setSettingsOpen(false)
+    }
+  }
+
+  const lastSavedLabel = useMemo(() => {
+    if (!lastSavedAt) {
+      return 'Autosave active'
+    }
+
+    return `Saved ${new Date(lastSavedAt).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })}`
+  }, [lastSavedAt])
+
+  useEffect(() => {
+    const timers = completionTimersRef.current
+    return () => {
+      for (const timer of timers.values()) {
+        window.clearTimeout(timer)
+      }
+      timers.clear()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!loaded) {
+      return
+    }
+
+    if (lastModeRef.current !== 'floating' && settings.mode === 'floating') {
+      fullModeSizeRef.current = {
+        width: settings.windowWidth,
+        height: settings.windowHeight,
+      }
+
+      applyWindowSize(440, 320).catch((error) => {
+        console.error('Could not resize floating mode', error)
+      })
+    }
+
+    if (lastModeRef.current === 'floating' && settings.mode !== 'floating') {
+      const previousFullSize = fullModeSizeRef.current
+      if (previousFullSize) {
+        applyWindowSize(previousFullSize.width, previousFullSize.height).catch((error) => {
+          console.error('Could not restore full mode size', error)
+        })
+      }
+    }
+
+    lastModeRef.current = settings.mode
+  }, [loaded, settings.mode, settings.windowHeight, settings.windowWidth])
 
   if (!loaded) {
     return <main className="app-shell loading">Loading queue...</main>
   }
 
   return (
-    <main className={`app-shell ${settings.mode}`}>
-      <header className="topbar" data-tauri-drag-region onMouseUp={() => snapWindowToCorner()}>
-        <div className="topbar-title">
-          <strong>TaskQueue</strong>
-          <span>Current + next, always in view</span>
-        </div>
-
-        <div className="topbar-actions" data-tauri-drag-region="false">
-          <button type="button" onClick={() => toggleMode()}>
-            {settings.mode === 'floating' ? 'Full mode' : 'Floating'}
+    <main className={`app-shell ${settings.mode}`} onKeyDown={onTopBarKeyDown}>
+      {updateVersion && (
+        <div className="update-banner">
+          <span>v{updateVersion} available</span>
+          <button className="update-banner-install" onClick={handleInstallUpdate}>
+            Install &amp; Restart
+          </button>
+          <button className="update-banner-dismiss" onClick={() => setUpdateVersion(null)}>
+            Later
           </button>
         </div>
-      </header>
+      )}
+      <TitleBar
+        mode={settings.mode}
+        settingsOpen={settingsOpen}
+        saveStatusLabel={lastSavedLabel}
+        onStartDrag={() => {
+          startWindowDragging().catch((error) => {
+            console.error('Drag start failed', error)
+          })
+        }}
+        onToggleMode={toggleMode}
+        onToggleSettings={() => setSettingsOpen((value) => !value)}
+        onMinimize={onMinimize}
+        onClose={onClose}
+        onSnap={() => {
+          snapWindowToCorner().catch((error) => {
+            console.error('Snap failed', error)
+          })
+        }}
+      />
 
-      <section className="quick-input-row">
-        <input
-          value={inputValue}
-          onChange={(event) => setInputValue(event.target.value)}
-          onKeyDown={onQuickInputKeyDown}
-          onPaste={onQuickInputPaste}
-          placeholder="Paste lines or type and press Enter"
-        />
-        <button type="button" onClick={() => addTask(inputValue)}>
-          Add
-        </button>
-      </section>
+      <SettingsMenu
+        isOpen={settingsOpen}
+        menuRef={settingsMenuRef}
+        opacity={settings.opacity}
+        stickyMode={settings.stickyMode}
+        onOpacityChange={setOpacity}
+        onStickyChange={setStickyMode}
+      />
 
       {settings.mode === 'floating' ? (
-        <section className="floating-shell">
-          <div className="current-card">
-            <p className="label">Current task</p>
-            {currentTask ? (
-              <>
-                <h2>{currentTask.content}</h2>
-                <button type="button" onClick={() => toggleTask(currentTask.id)}>
-                  Mark done
-                </button>
-              </>
-            ) : (
-              <h2>Queue is clear. Drop your next focus item.</h2>
-            )}
-          </div>
-
-          {nextTasks.length > 0 && (
-            <div className="next-stack">
-              <p className="label">Next</p>
-              {nextTasks.map((task) => (
-                <button key={task.id} type="button" className="next-task" onClick={() => toggleTask(task.id)}>
-                  {task.content}
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
+        <FloatingModePanel
+          tasks={floatingTasks}
+          groupNames={groupNameMap}
+          onToggleTask={onToggleTaskAnimated}
+          onSwitchToFull={() => setMode('full')}
+        />
       ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-          <section className="full-mode-layout">
-            <div className="queue-column">
-              <TaskContainer
+        <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+          <section className="full-layout">
+            <div className="queue-scroll">
+              <TaskColumn
                 id="ungrouped"
-                title="Inbox"
+                title="Backlog"
                 taskIds={ungroupedTaskIds}
                 taskMap={taskMap}
-                groups={groups}
-                onToggle={toggleTask}
+                completingTaskIds={completingTaskIds}
+                onToggle={onToggleTaskAnimated}
                 onUpdate={updateTask}
                 onDelete={removeTask}
-                onGroupChange={setTaskGroup}
+                onCreateTask={onComposerCreateTask}
+                onCreateTasksFromPaste={onComposerPaste}
+                onCreateGroupCommand={onComposerCreateGroup}
               />
 
-              {groups.map((group) => (
-                <section className="group-shell" key={group.id}>
-                  <header className="group-head">
-                    <button type="button" onClick={() => toggleGroupCollapsed(group.id)}>
-                      {group.collapsed ? '+' : '-'}
-                    </button>
-
-                    {renamingGroupId === group.id ? (
-                      <input
-                        autoFocus
-                        value={groupRenameDraft}
-                        onChange={(event) => setGroupRenameDraft(event.target.value)}
-                        onBlur={() => {
-                          renameGroup(group.id, groupRenameDraft)
-                          setRenamingGroupId(null)
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            renameGroup(group.id, groupRenameDraft)
-                            setRenamingGroupId(null)
-                          }
-                          if (event.key === 'Escape') {
-                            setRenamingGroupId(null)
-                          }
-                        }}
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        className="group-title"
-                        onDoubleClick={() => {
-                          setRenamingGroupId(group.id)
-                          setGroupRenameDraft(group.name)
-                        }}
-                      >
-                        {group.name}
-                      </button>
-                    )}
-                  </header>
-
-                  <TaskContainer
-                    id={group.id}
-                    title=""
-                    collapsed={group.collapsed}
+              <SortableContext id="group-order" items={groups.map((group) => `group-${group.id}`)} strategy={verticalListSortingStrategy}>
+                {groups.map((group) => (
+                  <SortableGroupSection
+                    key={group.id}
+                    group={group}
                     taskIds={groupTaskIds.get(group.id) ?? []}
                     taskMap={taskMap}
-                    groups={groups}
-                    onToggle={toggleTask}
-                    onUpdate={updateTask}
-                    onDelete={removeTask}
-                    onGroupChange={setTaskGroup}
+                    completingTaskIds={completingTaskIds}
+                    onToggleTask={onToggleTaskAnimated}
+                    onUpdateTask={updateTask}
+                    onDeleteTask={removeTask}
+                    onToggleGroupCollapsed={toggleGroupCollapsed}
+                    onRenameGroup={renameGroup}
+                    onCreateTaskInGroup={onComposerCreateTask}
+                    onCreateTasksFromPaste={onComposerPaste}
+                    onCreateGroupCommand={onComposerCreateGroup}
                   />
-                </section>
-              ))}
+                ))}
+              </SortableContext>
 
-              <section className="group-create">
-                <input
-                  value={groupDraft}
-                  onChange={(event) => setGroupDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      createGroup()
-                    }
-                  }}
-                  placeholder="Create group"
-                />
-                <button type="button" onClick={() => createGroup()}>
-                  Add group
-                </button>
-              </section>
-
-              <section className="completed-shell">
+              <section className="completed-block">
                 <button type="button" className="completed-toggle" onClick={toggleCompletedCollapsed}>
                   Completed ({completedTasks.length}) {settings.completedCollapsed ? '+' : '-'}
                 </button>
 
                 {!settings.completedCollapsed && (
                   <div className="completed-list">
-                    {completedTasks.map((task) => (
-                      <article key={task.id} className="completed-item">
-                        <button type="button" className="checkbox checked" onClick={() => toggleTask(task.id)} />
-                        <span>{task.content}</span>
-                      </article>
-                    ))}
+                    {completedTasks.length ? (
+                      completedTasks.map((task) => (
+                        <article key={task.id} className="completed-item">
+                          <button type="button" className="task-check checked" onClick={() => onToggleTaskAnimated(task.id)} />
+                          <span>{task.content}</span>
+                        </article>
+                      ))
+                    ) : (
+                      <div className="task-empty">Nothing completed yet</div>
+                    )}
                   </div>
                 )}
               </section>
             </div>
-
-            <aside className="settings-column">
-              <h3>Settings</h3>
-
-              <label>
-                Opacity {Math.round(settings.opacity * 100)}%
-                <input
-                  type="range"
-                  min={70}
-                  max={100}
-                  value={Math.round(settings.opacity * 100)}
-                  onChange={(event) => setOpacity(Number(event.target.value) / 100)}
-                />
-              </label>
-
-              <label>
-                Width {settings.windowWidth}px
-                <input
-                  type="range"
-                  min={360}
-                  max={900}
-                  value={settings.windowWidth}
-                  onChange={(event) => setWindowWidth(Number(event.target.value))}
-                />
-              </label>
-
-              <label>
-                Height {settings.windowHeight}px
-                <input
-                  type="range"
-                  min={300}
-                  max={980}
-                  value={settings.windowHeight}
-                  onChange={(event) => setWindowHeight(Number(event.target.value))}
-                />
-              </label>
-
-              <label className="switch-row">
-                <input
-                  type="checkbox"
-                  checked={settings.stickyMode}
-                  onChange={(event) => setStickyMode(event.target.checked)}
-                />
-                Sticky mode (always on top)
-              </label>
-
-              <div className="hint-list">
-                <p>Shortcuts:</p>
-                <p>Enter to add task</p>
-                <p>Cmd/Ctrl+S to save now</p>
-                <p>Cmd/Ctrl+Shift+S to hide/show window</p>
-                <p>Paste multi-line text to create one task per line</p>
-              </div>
-            </aside>
           </section>
 
           <DragOverlay>
-            {activeTaskId ? <StaticTaskPreview task={taskMap.get(activeTaskId)!} /> : null}
+            {activeTaskId ? <DragPreview task={taskMap.get(activeTaskId)} /> : null}
           </DragOverlay>
         </DndContext>
       )}

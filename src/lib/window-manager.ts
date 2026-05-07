@@ -4,6 +4,7 @@ import {
   currentMonitor,
   getCurrentWindow,
 } from '@tauri-apps/api/window'
+import type { UnlistenFn } from '@tauri-apps/api/event'
 
 const SNAP_THRESHOLD = 52
 const SNAP_PADDING = 12
@@ -27,6 +28,25 @@ export async function toggleWindowVisibility(): Promise<void> {
   }
   await appWindow.show()
   await appWindow.setFocus()
+}
+
+export async function minimizeWindow(): Promise<void> {
+  await getCurrentWindow().minimize()
+}
+
+export async function closeWindow(): Promise<void> {
+  await getCurrentWindow().close()
+}
+
+export async function startWindowDragging(): Promise<void> {
+  await getCurrentWindow().startDragging()
+}
+
+export async function observeWindowResize(onResize: (width: number, height: number) => void): Promise<UnlistenFn> {
+  const appWindow = getCurrentWindow()
+  return appWindow.onResized(({ payload }) => {
+    onResize(payload.width, payload.height)
+  })
 }
 
 export async function snapWindowToCorner(): Promise<void> {
