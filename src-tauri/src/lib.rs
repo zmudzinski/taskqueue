@@ -4,7 +4,7 @@ use std::{
   sync::Mutex,
 };
 
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 #[cfg(not(debug_assertions))]
 use tauri_plugin_updater::UpdaterExt;
 
