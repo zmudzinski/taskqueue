@@ -1,38 +1,18 @@
 import { create } from 'zustand'
-import type { AppSettings, Group, PersistedState, Task, ViewMode } from '../types'
-
-const PRIMARY_GROUP_ID = 'primary-today'
-const PRIMARY_GROUP_NAME = 'Today'
-
-function createPrimaryGroup(): Group {
-  return {
-    id: PRIMARY_GROUP_ID,
-    name: PRIMARY_GROUP_NAME,
-    collapsed: false,
-  }
-}
-
-function ensurePrimaryGroup(groups: Group[]): Group[] {
-  const primaryIndex = groups.findIndex((group) => group.id === PRIMARY_GROUP_ID)
-
-  if (primaryIndex === -1) {
-    return [createPrimaryGroup(), ...groups]
-  }
-
-  const next = [...groups]
-  const [primary] = next.splice(primaryIndex, 1)
-  next.unshift(primary)
-  return next
-}
+import type { AppSettings, Group, PersistedState, Task, ThemeMode, ViewMode } from '../types'
 
 const defaultSettings: AppSettings = {
   opacity: 0.78,
   windowWidth: 520,
   windowHeight: 420,
+  floatingWindowWidth: 390,
+  floatingWindowHeight: 168,
+  floatingVisibleNextCount: 3,
   stickyMode: true,
   mode: 'floating',
   hideCompleted: false,
   soundsEnabled: true,
+  themeMode: 'system',
 }
 
 type HistorySnapshot = {
@@ -59,14 +39,22 @@ type QueueStore = {
   renameGroup: (id: string, name: string) => void
   toggleGroupCollapsed: (id: string) => void
   reorderGroup: (groupId: string, targetGroupId?: string) => void
-  reorderTask: (taskId: string, targetContainer: string, targetTaskId?: string) => void
+  reorderTask: (
+    taskId: string,
+    targetContainer: string,
+    targetTaskId?: string,
+    targetPosition?: 'before' | 'after',
+  ) => void
   setMode: (mode: ViewMode) => void
   toggleMode: () => void
   setOpacity: (opacity: number) => void
   setWindowSize: (width: number, height: number) => void
+  setFloatingWindowSize: (width: number, height: number) => void
   setStickyMode: (sticky: boolean) => void
   setHideCompleted: (hide: boolean) => void
   setSoundsEnabled: (enabled: boolean) => void
+  setThemeMode: (mode: ThemeMode) => void
+  setFloatingVisibleNextCount: (count: number) => void
   purgeCompleted: () => void
   undoLastAction: () => void
   getPersistedState: () => PersistedState
@@ -144,7 +132,7 @@ function withHistory(state: QueueStore, nextTasks: Task[], nextGroups: Group[]):
 
 export const useTaskQueueStore = create<QueueStore>((set, get) => ({
   tasks: [],
-  groups: [createPrimaryGroup()],
+  groups: [],
   settings: defaultSettings,
   loaded: false,
   history: [],
@@ -154,9 +142,9 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
   },
 
   hydrate: (state) => {
-    const groups = ensurePrimaryGroup(state.groups ?? [])
-    // Discard any lingering orphan tasks (no group and not a backlog mirror).
-    const rawTasks = (state.tasks ?? []).filter((t) => t.groupId || t.sourceTaskId)
+    const groups = state.groups ?? []
+    const rawTasks = state.tasks ?? []
+    const legacyDarkMode = (state.settings as Partial<{ darkMode: boolean }> | undefined)?.darkMode
     const tasks = normalizeTasks(rawTasks, groups)
     set({
       tasks,
@@ -165,6 +153,7 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
       settings: {
         ...defaultSettings,
         ...state.settings,
+        themeMode: state.settings?.themeMode ?? (legacyDarkMode ? 'dark' : defaultSettings.themeMode),
       },
     })
   },
@@ -307,7 +296,7 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
     }
 
     set((state) => {
-      const nextGroups = ensurePrimaryGroup([...state.groups, { id: crypto.randomUUID(), name: normalized, collapsed: false }])
+      const nextGroups = [...state.groups, { id: crypto.randomUUID(), name: normalized, collapsed: false }]
       const nextTasks = normalizeTasks(state.tasks, nextGroups)
       return withHistory(state, nextTasks, nextGroups)
     })
@@ -315,20 +304,16 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
 
   removeGroup: (id) => {
     set((state) => {
-      if (id === PRIMARY_GROUP_ID) {
-        return state
-      }
-
       const exists = state.groups.some((group) => group.id === id)
       if (!exists) {
         return state
       }
 
-      const nextGroups = ensurePrimaryGroup(state.groups.filter((group) => group.id !== id))
+      const nextGroups = state.groups.filter((group) => group.id !== id)
 
       const nextTasks = normalizeTasks(
         state.tasks.map((task) =>
-          task.groupId === id ? { ...task, groupId: PRIMARY_GROUP_ID } : task,
+          task.groupId === id ? { ...task, groupId: undefined } : task,
         ),
         nextGroups,
       )
@@ -360,10 +345,6 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
 
   reorderGroup: (groupId, targetGroupId) => {
     set((state) => {
-      if (groupId === PRIMARY_GROUP_ID) {
-        return state
-      }
-
       const sourceIndex = state.groups.findIndex((group) => group.id === groupId)
       if (sourceIndex === -1) {
         return state
@@ -378,16 +359,20 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
         return state
       }
 
-      const normalizedGroups = ensurePrimaryGroup(arrayMove(state.groups, sourceIndex, targetIndex))
+      const normalizedGroups = arrayMove(state.groups, sourceIndex, targetIndex)
       const nextTasks = normalizeTasks(state.tasks, normalizedGroups)
       return withHistory(state, nextTasks, normalizedGroups)
     })
   },
 
-  reorderTask: (taskId, targetContainer, targetTaskId) => {
+  reorderTask: (taskId, targetContainer, targetTaskId, targetPosition = 'after') => {
     set((state) => {
       const movingTask = state.tasks.find((task) => task.id === taskId)
       if (!movingTask) {
+        return state
+      }
+
+      if (targetTaskId === taskId) {
         return state
       }
 
@@ -422,7 +407,10 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
       sourceList.splice(sourceIndex, 1)
 
       const targetIndex = targetTaskId == null ? -1 : targetList.findIndex((task) => task.id === targetTaskId)
-      const insertIndex = targetIndex >= 0 ? targetIndex : targetList.length
+      const insertIndex =
+        targetIndex >= 0
+          ? (targetPosition === 'before' ? targetIndex : targetIndex + 1)
+          : targetList.length
       targetList.splice(insertIndex, 0, detached)
 
       const ordered: Task[] = []
@@ -463,11 +451,25 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
   },
 
   setWindowSize: (width, height) => {
+    const nextWidth = Math.max(320, Math.round(width))
     set((state) => ({
       settings: {
         ...state.settings,
-        windowWidth: Math.round(width),
+        windowWidth: nextWidth,
         windowHeight: Math.round(height),
+        floatingWindowWidth: nextWidth,
+      },
+    }))
+  },
+
+  setFloatingWindowSize: (width, height) => {
+    const nextWidth = Math.max(320, Math.round(width))
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        floatingWindowWidth: nextWidth,
+        windowWidth: nextWidth,
+        floatingWindowHeight: Math.max(168, Math.round(height)),
       },
     }))
   },
@@ -495,6 +497,24 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
       settings: {
         ...state.settings,
         soundsEnabled,
+      },
+    }))
+  },
+
+  setThemeMode: (themeMode) => {
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        themeMode,
+      },
+    }))
+  },
+
+  setFloatingVisibleNextCount: (floatingVisibleNextCount) => {
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        floatingVisibleNextCount: Math.max(2, Math.min(8, Math.round(floatingVisibleNextCount))),
       },
     }))
   },

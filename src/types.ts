@@ -15,15 +15,20 @@ export type Group = {
 }
 
 export type ViewMode = 'floating' | 'full'
+export type ThemeMode = 'light' | 'dark' | 'system'
 
 export type AppSettings = {
   opacity: number
   windowWidth: number
   windowHeight: number
+  floatingWindowWidth: number
+  floatingWindowHeight: number
+  floatingVisibleNextCount: number
   stickyMode: boolean
   mode: ViewMode
   hideCompleted: boolean
   soundsEnabled: boolean
+  themeMode: ThemeMode
 }
 
 export type PersistedState = {
