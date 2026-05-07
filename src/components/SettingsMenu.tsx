@@ -3,6 +3,7 @@ import { Card } from './ui/Card'
 import { Separator } from './ui/Separator'
 import { Switch } from './ui/Switch'
 import { Button } from './ui/Button'
+import type { ThemeMode } from '../types'
 
 type SettingsMenuProps = {
   isOpen: boolean
@@ -12,10 +13,14 @@ type SettingsMenuProps = {
   stickyMode: boolean
   hideCompleted: boolean
   soundsEnabled: boolean
+  themeMode: ThemeMode
+  floatingVisibleNextCount: number
   onOpacityChange: (opacity: number) => void
   onStickyChange: (sticky: boolean) => void
   onHideCompletedChange: (hide: boolean) => void
   onSoundsEnabledChange: (enabled: boolean) => void
+  onThemeModeChange: (mode: ThemeMode) => void
+  onFloatingVisibleNextCountChange: (count: number) => void
   onDeleteCompleted: () => void
 }
 
@@ -27,10 +32,14 @@ export function SettingsMenu({
   stickyMode,
   hideCompleted,
   soundsEnabled,
+  themeMode,
+  floatingVisibleNextCount,
   onOpacityChange,
   onStickyChange,
   onHideCompletedChange,
   onSoundsEnabledChange,
+  onThemeModeChange,
+  onFloatingVisibleNextCountChange,
   onDeleteCompleted,
 }: SettingsMenuProps) {
   if (!isOpen) {
@@ -67,6 +76,31 @@ export function SettingsMenu({
         <Switch checked={soundsEnabled} onCheckedChange={onSoundsEnabledChange} ariaLabel="Sound effects" />
       </div>
 
+      <div className="settings-switch-row">
+        <span>Theme</span>
+        <select
+          className="settings-select"
+          value={themeMode}
+          onChange={(event) => onThemeModeChange(event.target.value as ThemeMode)}
+          aria-label="Theme mode"
+        >
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+          <option value="system">System</option>
+        </select>
+      </div>
+
+      <label>
+        Visible next tasks {floatingVisibleNextCount}
+        <input
+          type="range"
+          min={2}
+          max={8}
+          value={floatingVisibleNextCount}
+          onChange={(event) => onFloatingVisibleNextCountChange(Number(event.target.value))}
+        />
+      </label>
+
       <Separator />
 
       <Button variant="destructive" size="sm" className="settings-purge-btn" onClick={onDeleteCompleted}>
@@ -75,8 +109,6 @@ export function SettingsMenu({
 
       <Separator />
       <div className="settings-help">
-        <p>Cmd/Ctrl + S saves now</p>
-        <p>Cmd/Ctrl + Shift + S hides window</p>
         <p>Cmd/Ctrl + Z restores last queue edit</p>
       </div>
 
