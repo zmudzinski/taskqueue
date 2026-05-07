@@ -87,7 +87,11 @@ jobs:
 
             ### Installation (first launch on a new Mac)
             1. Download **TaskQueue_*_universal.dmg** below and open it
-            2. If macOS blocks the app: **right-click the app icon -> Open -> Open**
+            2. If macOS blocks the app, use one of the methods below:
+               - Finder: **right-click the app icon -> Open -> Open**
+               - System Settings: **Privacy & Security -> Open Anyway**
+               - Terminal:
+                 xattr -dr com.apple.quarantine /Applications/TaskQueue.app
               *(one-time only - next launches work normally)*
 
             ### Updates
