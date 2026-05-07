@@ -46,6 +46,9 @@ if [[ "$CURRENT_VERSION" == *-* ]]; then
   CURRENT_PRE_NUM="${PRE_SUFFIX##*.}"
 fi
 
+NEW_VERSION=""
+IS_PRERELEASE=false
+
 # ── choose bump type ─────────────────────────────────────────────────────
 echo ""
 echo -e "${YELLOW}${BOLD}Which part to bump?${NC}"
