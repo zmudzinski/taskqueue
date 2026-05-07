@@ -37,53 +37,76 @@ MAJOR=${PARTS[0]:-0}
 MINOR=${PARTS[1]:-0}
 PATCH=${PARTS[2]:-0}
 
+# detect existing pre-release tag and number (e.g. alpha.1 → tag=alpha, num=1)
+CURRENT_PRE_TAG=""
+CURRENT_PRE_NUM=""
+if [[ "$CURRENT_VERSION" == *-* ]]; then
+  PRE_SUFFIX="${CURRENT_VERSION#*-}"
+  CURRENT_PRE_TAG="${PRE_SUFFIX%%.*}"
+  CURRENT_PRE_NUM="${PRE_SUFFIX##*.}"
+fi
+
 # ── choose bump type ─────────────────────────────────────────────────────
 echo ""
 echo -e "${YELLOW}${BOLD}Which part to bump?${NC}"
 echo "  1) patch  → ${MAJOR}.${MINOR}.$((PATCH + 1))"
 echo "  2) minor  → ${MAJOR}.$((MINOR + 1)).0"
 echo "  3) major  → $((MAJOR + 1)).0.0"
-read -r -p "Choice [1-3]: " BUMP_CHOICE
+if [[ -n "$CURRENT_PRE_TAG" ]]; then
+  NEXT_PRE_NUM=$((CURRENT_PRE_NUM + 1))
+  echo "  4) re-release → ${BASE}-${CURRENT_PRE_TAG}.${NEXT_PRE_NUM}  (same base, bump pre-release number)"
+  read -r -p "Choice [1-4]: " BUMP_CHOICE
+else
+  read -r -p "Choice [1-3]: " BUMP_CHOICE
+fi
 
-case $BUMP_CHOICE in
-  1) NM=$MAJOR; NMI=$MINOR; NP=$((PATCH + 1)) ;;
-  2) NM=$MAJOR; NMI=$((MINOR + 1)); NP=0 ;;
-  3) NM=$((MAJOR + 1)); NMI=0; NP=0 ;;
-  *) echo -e "${RED}Invalid choice.${NC}"; exit 1 ;;
-esac
+if [[ "$BUMP_CHOICE" == "4" && -n "$CURRENT_PRE_TAG" ]]; then
+  # re-release: keep base, bump pre-release number only
+  NEW_VERSION="${BASE}-${CURRENT_PRE_TAG}.${NEXT_PRE_NUM}"
+  IS_PRERELEASE=true
+else
+  case $BUMP_CHOICE in
+    1) NM=$MAJOR; NMI=$MINOR; NP=$((PATCH + 1)) ;;
+    2) NM=$MAJOR; NMI=$((MINOR + 1)); NP=0 ;;
+    3) NM=$((MAJOR + 1)); NMI=0; NP=0 ;;
+    *) echo -e "${RED}Invalid choice.${NC}"; exit 1 ;;
+  esac
 
-NEW_BASE="${NM}.${NMI}.${NP}"
+  NEW_BASE="${NM}.${NMI}.${NP}"
 
-# ── optional pre-release suffix ──────────────────────────────────────────
-echo ""
-echo -e "${YELLOW}${BOLD}Release channel?${NC}"
-echo "  1) stable  (${NEW_BASE})"
-echo "  2) rc      (${NEW_BASE}-rc.N)"
-echo "  3) beta    (${NEW_BASE}-beta.N)"
-echo "  4) alpha   (${NEW_BASE}-alpha.N)"
-read -r -p "Choice [1-4]: " PRE_CHOICE
+  # ── optional pre-release suffix ──────────────────────────────────────────
+  echo ""
+  echo -e "${YELLOW}${BOLD}Release channel?${NC}"
+  echo "  1) stable  (${NEW_BASE})"
+  echo "  2) rc      (${NEW_BASE}-rc.N)"
+  echo "  3) beta    (${NEW_BASE}-beta.N)"
+  echo "  4) alpha   (${NEW_BASE}-alpha.N)"
+  read -r -p "Choice [1-4]: " PRE_CHOICE
+fi
 
-case $PRE_CHOICE in
-  1)
-    NEW_VERSION="${NEW_BASE}"
-    IS_PRERELEASE=false
-    ;;
-  2|3|4)
-    case $PRE_CHOICE in
-      2) PRE_TAG="rc" ;;
-      3) PRE_TAG="beta" ;;
-      4) PRE_TAG="alpha" ;;
-    esac
-    read -r -p "Pre-release number (e.g. 1): " PRE_NUM
-    if ! [[ "$PRE_NUM" =~ ^[0-9]+$ ]]; then
-      echo -e "${RED}Must be a positive integer.${NC}"; exit 1
-    fi
-    NEW_VERSION="${NEW_BASE}-${PRE_TAG}.${PRE_NUM}"
-    IS_PRERELEASE=true
-    ;;
-  *)
-    echo -e "${RED}Invalid choice.${NC}"; exit 1 ;;
-esac
+if [[ -z "$NEW_VERSION" ]]; then
+  case $PRE_CHOICE in
+    1)
+      NEW_VERSION="${NEW_BASE}"
+      IS_PRERELEASE=false
+      ;;
+    2|3|4)
+      case $PRE_CHOICE in
+        2) PRE_TAG="rc" ;;
+        3) PRE_TAG="beta" ;;
+        4) PRE_TAG="alpha" ;;
+      esac
+      read -r -p "Pre-release number (e.g. 1): " PRE_NUM
+      if ! [[ "$PRE_NUM" =~ ^[0-9]+$ ]]; then
+        echo -e "${RED}Must be a positive integer.${NC}"; exit 1
+      fi
+      NEW_VERSION="${NEW_BASE}-${PRE_TAG}.${PRE_NUM}"
+      IS_PRERELEASE=true
+      ;;
+    *)
+      echo -e "${RED}Invalid choice.${NC}"; exit 1 ;;
+  esac
+fi
 
 # ── confirm ───────────────────────────────────────────────────────────────
 echo ""
