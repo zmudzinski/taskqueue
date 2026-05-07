@@ -97,5 +97,7 @@ jobs:
             ### Updates
             If you already have a previous version installed, the app will notify you automatically.
           releaseDraft: false
-          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+          # Keep this false so /releases/latest/download/latest.json always points to the newest release.
+          # GitHub's "latest" endpoint ignores prereleases.
+          prerelease: false
           args: --target universal-apple-darwin
