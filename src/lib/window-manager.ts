@@ -8,6 +8,29 @@ import type { UnlistenFn } from '@tauri-apps/api/event'
 
 const SNAP_THRESHOLD = 52
 const SNAP_PADDING = 12
+export type WindowCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+
+function computeCornerPosition(
+  corner: WindowCorner,
+  monitor: NonNullable<Awaited<ReturnType<typeof currentMonitor>>>,
+  windowSize: { width: number; height: number },
+): { x: number; y: number } {
+  const left = monitor.workArea.position.x + SNAP_PADDING
+  const top = monitor.workArea.position.y + SNAP_PADDING
+  const right = monitor.workArea.position.x + monitor.workArea.size.width - windowSize.width - SNAP_PADDING
+  const bottom = monitor.workArea.position.y + monitor.workArea.size.height - windowSize.height - SNAP_PADDING
+
+  switch (corner) {
+    case 'top-left':
+      return { x: left, y: top }
+    case 'top-right':
+      return { x: right, y: top }
+    case 'bottom-left':
+      return { x: left, y: bottom }
+    case 'bottom-right':
+      return { x: right, y: bottom }
+  }
+}
 
 export async function applyWindowSize(width: number, height: number): Promise<void> {
   const appWindow = getCurrentWindow()
@@ -74,16 +97,29 @@ export async function snapWindowToCorner(): Promise<void> {
 
   let bestCorner = corners[0]
   let bestDistance = Number.POSITIVE_INFINITY
+  let bestIndex = 0
 
-  for (const corner of corners) {
+  for (const [index, corner] of corners.entries()) {
     const distance = Math.hypot(windowPosition.x - corner.x, windowPosition.y - corner.y)
     if (distance < bestDistance) {
       bestDistance = distance
       bestCorner = corner
+      bestIndex = index
     }
   }
 
-  if (bestDistance <= SNAP_THRESHOLD) {
-    await appWindow.setPosition(new PhysicalPosition(bestCorner.x, bestCorner.y))
+  const cornerToUse = bestDistance <= SNAP_THRESHOLD ? corners[(bestIndex + 1) % corners.length] : bestCorner
+  await appWindow.setPosition(new PhysicalPosition(cornerToUse.x, cornerToUse.y))
+}
+
+export async function dockWindowToCorner(corner: WindowCorner): Promise<void> {
+  const appWindow = getCurrentWindow()
+  const monitor = await currentMonitor()
+  if (!monitor) {
+    return
   }
+
+  const windowSize = await appWindow.outerSize()
+  const position = computeCornerPosition(corner, monitor, windowSize)
+  await appWindow.setPosition(new PhysicalPosition(position.x, position.y))
 }
