@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { playBacklogAddedSound, playBacklogRemovedSound } from '../lib/sounds'
 
 type UseBacklogActionsParams = {
@@ -11,8 +11,7 @@ type UseBacklogActionsParams = {
 }
 
 type UseBacklogActionsResult = {
-  backlogToast: boolean
-  onAddToBacklogWithToast: (taskId: string) => void
+  onAddToBacklogWithSound: (taskId: string) => void
   onRemoveFromBacklogWithSound: (taskId: string) => void
 }
 
@@ -24,16 +23,7 @@ export function useBacklogActions({
   removeTask,
   tasks,
 }: UseBacklogActionsParams): UseBacklogActionsResult {
-  const [backlogToast, setBacklogToast] = useState(false)
-  const backlogToastTimerRef = useRef<number | undefined>(undefined)
   const backlogScrollAnchorRef = useRef<{ scrollTop: number; scrollHeight: number } | null>(null)
-
-  useEffect(() => {
-    const toastTimer = backlogToastTimerRef
-    return () => {
-      window.clearTimeout(toastTimer.current)
-    }
-  }, [])
 
   useEffect(() => {
     const anchor = backlogScrollAnchorRef.current
@@ -47,7 +37,7 @@ export function useBacklogActions({
     backlogScrollAnchorRef.current = null
   }, [tasks, scrollContainerRef])
 
-  const onAddToBacklogWithToast = (taskId: string) => {
+  const onAddToBacklogWithSound = (taskId: string) => {
     if (backlogSourceTaskIds.has(taskId)) {
       return
     }
@@ -62,9 +52,6 @@ export function useBacklogActions({
 
     addTaskToBacklog(taskId)
     if (soundsEnabled) playBacklogAddedSound()
-    window.clearTimeout(backlogToastTimerRef.current)
-    setBacklogToast(true)
-    backlogToastTimerRef.current = window.setTimeout(() => setBacklogToast(false), 2200)
   }
 
   const onRemoveFromBacklogWithSound = (taskId: string) => {
@@ -72,5 +59,5 @@ export function useBacklogActions({
     if (soundsEnabled) playBacklogRemovedSound()
   }
 
-  return { backlogToast, onAddToBacklogWithToast, onRemoveFromBacklogWithSound }
+  return { onAddToBacklogWithSound, onRemoveFromBacklogWithSound }
 }

@@ -6,9 +6,15 @@ type UseWindowSyncParams = {
   loaded: boolean
   settings: AppSettings
   setWindowSize: (width: number, height: number) => void
+  setFloatingWindowSize: (width: number, height: number) => void
 }
 
-export function useWindowSync({ loaded, settings, setWindowSize }: UseWindowSyncParams): void {
+export function useWindowSync({
+  loaded,
+  settings,
+  setWindowSize,
+  setFloatingWindowSize,
+}: UseWindowSyncParams): void {
   const restoredWindowSize = useRef(false)
 
   useEffect(() => {
@@ -17,10 +23,19 @@ export function useWindowSync({ loaded, settings, setWindowSize }: UseWindowSync
     }
 
     restoredWindowSize.current = true
-    applyWindowSize(settings.windowWidth, settings.windowHeight).catch((error) => {
+    const restoreWidth = settings.windowWidth
+    const restoreHeight = settings.mode === 'floating' ? settings.floatingWindowHeight : settings.windowHeight
+    applyWindowSize(restoreWidth, restoreHeight).catch((error) => {
       console.error('Could not restore window size', error)
     })
-  }, [loaded, settings.windowHeight, settings.windowWidth])
+  }, [
+    loaded,
+    settings.mode,
+    settings.windowHeight,
+    settings.windowWidth,
+    settings.floatingWindowWidth,
+    settings.floatingWindowHeight,
+  ])
 
   useEffect(() => {
     applyStickyMode(settings.stickyMode).catch((error) => {
@@ -42,6 +57,11 @@ export function useWindowSync({ loaded, settings, setWindowSize }: UseWindowSync
       }
 
       debounceTimer = window.setTimeout(() => {
+        if (settings.mode === 'floating') {
+          setFloatingWindowSize(width, height)
+          setWindowSize(width, settings.windowHeight)
+          return
+        }
         setWindowSize(width, height)
       }, 120)
     })
@@ -60,5 +80,5 @@ export function useWindowSync({ loaded, settings, setWindowSize }: UseWindowSync
         stopListening()
       }
     }
-  }, [loaded, setWindowSize])
+  }, [loaded, settings.mode, setFloatingWindowSize, setWindowSize])
 }

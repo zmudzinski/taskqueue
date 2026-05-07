@@ -7,9 +7,16 @@ type UseModeTransitionParams = {
   mode: ViewMode
   windowWidth: number
   windowHeight: number
+  floatingWindowHeight: number
 }
 
-export function useModeTransition({ loaded, mode, windowWidth, windowHeight }: UseModeTransitionParams): void {
+export function useModeTransition({
+  loaded,
+  mode,
+  windowWidth,
+  windowHeight,
+  floatingWindowHeight,
+}: UseModeTransitionParams): void {
   const lastModeRef = useRef(mode)
   const fullModeSizeRef = useRef<{ width: number; height: number } | null>(null)
 
@@ -20,7 +27,7 @@ export function useModeTransition({ loaded, mode, windowWidth, windowHeight }: U
 
     if (lastModeRef.current !== 'floating' && mode === 'floating') {
       fullModeSizeRef.current = { width: windowWidth, height: windowHeight }
-      applyWindowSize(440, 320).catch((error) => {
+      applyWindowSize(windowWidth, floatingWindowHeight).catch((error) => {
         console.error('Could not resize floating mode', error)
       })
     }
@@ -35,5 +42,5 @@ export function useModeTransition({ loaded, mode, windowWidth, windowHeight }: U
     }
 
     lastModeRef.current = mode
-  }, [loaded, mode, windowWidth, windowHeight])
+  }, [loaded, mode, windowWidth, windowHeight, floatingWindowHeight])
 }
