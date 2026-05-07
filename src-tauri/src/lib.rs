@@ -1,6 +1,12 @@
-use std::{fs, path::PathBuf};
+use std::{
+  fs,
+  path::PathBuf,
+  sync::Mutex,
+};
 
 use tauri::Manager;
+#[cfg(not(debug_assertions))]
+use tauri_plugin_updater::UpdaterExt;
 
 fn state_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
   let app_data = app
@@ -52,9 +58,30 @@ fn toggle_main_window(window: tauri::Window) -> Result<(), String> {
   Ok(())
 }
 
+/// Holds the pending update so we can download/install it when the user confirms.
+struct PendingUpdate(Mutex<Option<tauri_plugin_updater::Update>>);
+
+#[tauri::command]
+async fn install_update(
+  app: tauri::AppHandle,
+  pending: tauri::State<'_, PendingUpdate>,
+) -> Result<(), String> {
+  let update = pending.0.lock().unwrap().take();
+  if let Some(update) = update {
+    update
+      .download_and_install(|_chunk, _total| {}, || {})
+      .await
+      .map_err(|e| e.to_string())?;
+    app.restart();
+  }
+  Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
+    .manage(PendingUpdate(Mutex::new(None)))
+    .plugin(tauri_plugin_updater::Builder::new().build())
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(
@@ -63,9 +90,38 @@ pub fn run() {
             .build(),
         )?;
       }
+
+      // Check for updates in the background (release builds only).
+      // On finding one, emit "update-available" so the UI can prompt the user.
+      #[cfg(not(debug_assertions))]
+      {
+        let handle = app.handle().clone();
+        tauri::async_runtime::spawn(async move {
+          let Ok(updater) = handle.updater_builder().build() else {
+            return;
+          };
+          match updater.check().await {
+            Ok(Some(update)) => {
+              let version = update.version.clone();
+              if let Some(state) = handle.try_state::<PendingUpdate>() {
+                *state.0.lock().unwrap() = Some(update);
+              }
+              let _ = handle.emit("update-available", version);
+            }
+            Ok(None) => {}
+            Err(e) => log::warn!("Update check failed: {e}"),
+          }
+        });
+      }
+
       Ok(())
     })
-    .invoke_handler(tauri::generate_handler![save_state, load_state, toggle_main_window])
+    .invoke_handler(tauri::generate_handler![
+      save_state,
+      load_state,
+      toggle_main_window,
+      install_update,
+    ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }

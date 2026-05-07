@@ -23,11 +23,26 @@
         "fullscreen": false,
         "alwaysOnTop": true,
         "transparent": true,
+        "backgroundColor": "#00000000",
+        "windowEffects": {
+          "effects": [
+            "underWindowBackground"
+          ],
+          "state": "active"
+        },
         "decorations": false
       }
     ],
     "security": {
       "csp": null
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQwRDg5RTg2NjY1QkM4RUQKUldUdHlGdG1ocDdZUUVkdWNGNk1BTW9ha2pEdUtsZjF2K3pIcXp0VThFM0tJVEZ4bmhYOUhadHYK",
+      "endpoints": [
+        "https://github.com/zmudzinski/taskqueue/releases/latest/download/latest.json"
+      ]
     }
   },
   "bundle": {
