@@ -6,6 +6,7 @@ import { Switch } from './ui/Switch'
 type SettingsMenuProps = {
   isOpen: boolean
   menuRef?: RefObject<HTMLElement | null>
+  appVersion: string
   opacity: number
   stickyMode: boolean
   onOpacityChange: (opacity: number) => void
@@ -15,6 +16,7 @@ type SettingsMenuProps = {
 export function SettingsMenu({
   isOpen,
   menuRef,
+  appVersion,
   opacity,
   stickyMode,
   onOpacityChange,
@@ -50,6 +52,9 @@ export function SettingsMenu({
         <p>Cmd/Ctrl + Shift + S hides window</p>
         <p>Cmd/Ctrl + Z restores last queue edit</p>
       </div>
+
+      <Separator />
+      <p className="settings-version">Version {appVersion}</p>
     </Card>
   )
 }

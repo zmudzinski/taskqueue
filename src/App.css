@@ -271,6 +271,13 @@
   margin: 0 0 4px;
 }
 
+.settings-version {
+  margin: 0;
+  text-align: right;
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
 .full-layout {
   min-height: 0;
   flex: 1;

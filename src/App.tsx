@@ -48,6 +48,8 @@ function DragPreview({ task }: { task?: Task }) {
 }
 
 function App() {
+  const appVersion = __APP_VERSION__
+
   const {
     tasks,
     groups,
@@ -419,6 +421,7 @@ function App() {
       <SettingsMenu
         isOpen={settingsOpen}
         menuRef={settingsMenuRef}
+        appVersion={appVersion}
         opacity={settings.opacity}
         stickyMode={settings.stickyMode}
         onOpacityChange={setOpacity}
