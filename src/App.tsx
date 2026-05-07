@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import {
-  KeyboardSensor,
   closestCorners,
+  KeyboardSensor,
   DndContext,
   DragOverlay,
   PointerSensor,
   pointerWithin,
-  rectIntersection,
   useSensor,
   useSensors,
   type CollisionDetection,
@@ -16,36 +15,31 @@ import {
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { loadState } from './lib/persistence'
 import {
-  applyWindowSize,
   closeWindow,
   minimizeWindow,
   snapWindowToCorner,
   startWindowDragging,
 } from './lib/window-manager'
 import { useAutosave } from './hooks/useAutosave'
+import { useBacklogActions } from './hooks/useBacklogActions'
+import { useCloseRequest } from './hooks/useCloseRequest'
+import { useConfirmDialog } from './hooks/useConfirmDialog'
+import { useDerivedTaskData } from './hooks/useDerivedTaskData'
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts'
+import { useModeTransition } from './hooks/useModeTransition'
+import { useTaskCompletion } from './hooks/useTaskCompletion'
+import { useUpdater } from './hooks/useUpdater'
 import { useWindowSync } from './hooks/useWindowSync'
 import { useTaskQueueStore } from './store/useTaskQueueStore'
+import { DragPreview } from './components/DragPreview'
 import { FloatingModePanel } from './components/FloatingModePanel'
+import { AddGroupComposer } from './components/AddGroupComposer'
 import { SettingsMenu } from './components/SettingsMenu'
 import { SortableGroupSection } from './components/SortableGroupSection'
 import { TaskColumn } from './components/TaskColumn'
 import { TitleBar } from './components/TitleBar'
-import type { Task } from './types'
+import { ConfirmDialog } from './components/ui/ConfirmDialog'
 import './App.css'
-
-function DragPreview({ task }: { task?: Task }) {
-  if (!task) {
-    return null
-  }
-
-  return (
-    <article className="task-item drag-preview">
-      <div className="task-check" />
-      <div className="task-body">{task.content}</div>
-    </article>
-  )
-}
 
 function App() {
   const appVersion = __APP_VERSION__
@@ -59,10 +53,12 @@ function App() {
     hydrate,
     addTask,
     addTasksFromPaste,
+    addTaskToBacklog,
     toggleTask,
     updateTask,
     removeTask,
     createGroup,
+    removeGroup,
     renameGroup,
     toggleGroupCollapsed,
     reorderGroup,
@@ -72,81 +68,68 @@ function App() {
     setOpacity,
     setWindowSize,
     setStickyMode,
-    toggleCompletedCollapsed,
+    setHideCompleted,
+    setSoundsEnabled,
+    purgeCompleted,
     undoLastAction,
     getPersistedState,
   } = useTaskQueueStore()
 
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
-  const [completingTaskIds, setCompletingTaskIds] = useState<Set<string>>(new Set())
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
-  const [updateVersion, setUpdateVersion] = useState<string | null>(null)
+  const [floatingPromotedTaskId, setFloatingPromotedTaskId] = useState<string | null>(null)
+
   const settingsMenuRef = useRef<HTMLElement | null>(null)
-  const completionTimersRef = useRef<Map<string, number>>(new Map())
-  const lastModeRef = useRef(settings.mode)
-  const fullModeSizeRef = useRef<{ width: number; height: number } | null>(null)
+  const queueScrollRef = useRef<HTMLDivElement | null>(null)
 
-  // Listen for update-available events emitted by the Rust updater (release builds only)
-  useEffect(() => {
-    if (!('__TAURI_INTERNALS__' in window)) return
-    let unlisten: (() => void) | undefined
-    import('@tauri-apps/api/event')
-      .then(({ listen }) =>
-        listen<string>('update-available', (event) => setUpdateVersion(event.payload)),
-      )
-      .then((fn) => {
-        unlisten = fn
-      })
-    return () => {
-      unlisten?.()
-    }
-  }, [])
+  const { updateVersion, dismissUpdate, handleInstallUpdate } = useUpdater()
 
-  const handleInstallUpdate = async () => {
-    try {
-      const { invoke } = await import('@tauri-apps/api/core')
-      await invoke('install_update')
-    } catch (error) {
-      console.error('Update install failed', error)
-    }
-  }
+  const { confirmRequest, setConfirmRequest, requestDeleteTask, requestDeleteGroup, requestPurgeCompleted } =
+    useConfirmDialog()
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  )
+  useCloseRequest({ setConfirmRequest })
 
-  const sortedTasks = useMemo(() => [...tasks].sort((a, b) => a.order - b.order), [tasks])
-  const activeTasks = useMemo(() => sortedTasks.filter((task) => !task.completed), [sortedTasks])
-  const completedTasks = useMemo(() => sortedTasks.filter((task) => task.completed), [sortedTasks])
-  const taskMap = useMemo(() => new Map(sortedTasks.map((task) => [task.id, task])), [sortedTasks])
-  const groupNameMap = useMemo(() => new Map(groups.map((group) => [group.id, group.name])), [groups])
-  const floatingTasks = useMemo(() => activeTasks, [activeTasks])
+  const {
+    taskMap,
+    groupNameMap,
+    floatingTasks,
+    backlogSourceTaskIds,
+    backlogMirrorBySourceId,
+    ungroupedTaskIds,
+    groupTaskIds,
+    groupProgress,
+  } = useDerivedTaskData({
+    tasks,
+    groups,
+    hideCompleted: settings.hideCompleted,
+    promotedTaskId: floatingPromotedTaskId,
+  })
 
-  const ungroupedTaskIds = useMemo(
-    () => activeTasks.filter((task) => !task.groupId).map((task) => task.id),
-    [activeTasks],
-  )
+  const { completingTaskIds, onToggleTaskAnimated } = useTaskCompletion({
+    soundsEnabled: settings.soundsEnabled,
+    taskMap,
+    toggleTask,
+    onPromotedTaskCompleted: (taskId) => {
+      setFloatingPromotedTaskId((current) => (current === taskId ? null : current))
+    },
+  })
 
-  const groupTaskIds = useMemo(() => {
-    const mapping = new Map<string, string[]>()
-    for (const group of groups) {
-      mapping.set(group.id, [])
-    }
+  const { backlogToast, onAddToBacklogWithToast, onRemoveFromBacklogWithSound } = useBacklogActions({
+    soundsEnabled: settings.soundsEnabled,
+    backlogSourceTaskIds,
+    scrollContainerRef: queueScrollRef,
+    addTaskToBacklog,
+    removeTask,
+    tasks,
+  })
 
-    for (const task of activeTasks) {
-      if (task.groupId && mapping.has(task.groupId)) {
-        mapping.get(task.groupId)?.push(task.id)
-      }
-    }
-
-    return mapping
-  }, [activeTasks, groups])
-
-  useEffect(() => {
-    document.documentElement.style.setProperty('--surface-alpha', String(settings.opacity))
-  }, [settings.opacity])
+  useModeTransition({
+    loaded,
+    mode: settings.mode,
+    windowWidth: settings.windowWidth,
+    windowHeight: settings.windowHeight,
+  })
 
   useEffect(() => {
     let mounted = true
@@ -176,6 +159,32 @@ function App() {
     }
   }, [hydrate, setLoaded])
 
+  useEffect(() => {
+    document.documentElement.style.setProperty('--surface-alpha', String(settings.opacity))
+  }, [settings.opacity])
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!settingsOpen) {
+        return
+      }
+
+      const target = event.target as Element | null
+      if (target?.closest('[data-settings-trigger]')) {
+        return
+      }
+
+      if (target && settingsMenuRef.current?.contains(target as Node)) {
+        return
+      }
+
+      setSettingsOpen(false)
+    }
+
+    window.addEventListener('mousedown', handleClickOutside)
+    return () => window.removeEventListener('mousedown', handleClickOutside)
+  }, [settingsOpen])
+
   useAutosave({
     loaded,
     trackedTasks: tasks,
@@ -188,44 +197,24 @@ function App() {
   useWindowSync({ loaded, settings, setWindowSize })
   useGlobalShortcuts({ getPersistedState, undoLastAction })
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!settingsOpen) {
-        return
-      }
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
 
-      const target = event.target as Node | null
-      if (target && settingsMenuRef.current?.contains(target)) {
-        return
-      }
-
-      setSettingsOpen(false)
+  const collisionDetection: CollisionDetection = (args) => {
+    const pointerCollisions = pointerWithin(args)
+    if (pointerCollisions.length > 0) {
+      return pointerCollisions
     }
-
-    window.addEventListener('mousedown', handleClickOutside)
-    return () => window.removeEventListener('mousedown', handleClickOutside)
-  }, [settingsOpen])
+    return closestCorners(args)
+  }
 
   const onDragStart = (event: DragStartEvent) => {
     const id = String(event.active.id)
     if (id.startsWith('task-')) {
       setActiveTaskId(id.replace('task-', ''))
-      return
     }
-  }
-
-  const collisionDetection: CollisionDetection = (args) => {
-    const pointerCollisions = pointerWithin(args)
-    if (pointerCollisions.length) {
-      return pointerCollisions
-    }
-
-    const rectCollisions = rectIntersection(args)
-    if (rectCollisions.length) {
-      return rectCollisions
-    }
-
-    return closestCorners(args)
   }
 
   const onDragEnd = (event: DragEndEvent) => {
@@ -239,7 +228,18 @@ function App() {
 
     if (activeId.startsWith('group-')) {
       const groupId = activeId.replace('group-', '')
-      const targetGroupId = overId.startsWith('group-') ? overId.replace('group-', '') : undefined
+      let targetGroupId: string | undefined
+
+      if (overId.startsWith('group-')) {
+        targetGroupId = overId.replace('group-', '')
+      } else if (overId.startsWith('container-')) {
+        const candidate = overId.replace('container-', '')
+        targetGroupId = candidate === 'ungrouped' ? undefined : candidate
+      } else if (overId.startsWith('task-')) {
+        const targetTaskId = overId.replace('task-', '')
+        targetGroupId = taskMap.get(targetTaskId)?.groupId
+      }
+
       if (targetGroupId && targetGroupId !== groupId) {
         reorderGroup(groupId, targetGroupId)
       }
@@ -255,79 +255,25 @@ function App() {
     if (overId.startsWith('task-')) {
       const targetTaskId = overId.replace('task-', '')
       const targetTask = taskMap.get(targetTaskId)
-      if (!targetTask || targetTask.completed) {
+      if (!targetTask) {
         return
       }
-      reorderTask(taskId, targetTask.groupId ?? 'ungrouped', targetTaskId)
+      const targetContainer = targetTask.groupId ?? 'ungrouped'
+      const sourceTask = taskMap.get(taskId)
+      if (sourceTask?.groupId && !targetTask.groupId) {
+        return
+      }
+      reorderTask(taskId, targetContainer, targetTaskId)
       return
     }
 
     if (overId.startsWith('container-')) {
-      reorderTask(taskId, overId.replace('container-', ''))
-    }
-  }
-
-  const onComposerCreateTask = (value: string, groupId?: string) => {
-    addTask(value, groupId)
-  }
-
-  const onComposerCreateGroup = (value: string) => {
-    createGroup(value)
-  }
-
-  const onComposerPaste = (value: string, groupId?: string) => {
-    addTasksFromPaste(value, groupId)
-  }
-
-  const onToggleTaskAnimated = (taskId: string) => {
-    const task = taskMap.get(taskId)
-    if (!task) {
-      return
-    }
-
-    if (task.completed) {
-      toggleTask(taskId)
-      return
-    }
-
-    setCompletingTaskIds((current) => {
-      const next = new Set(current)
-      next.add(taskId)
-      return next
-    })
-
-    const timerId = window.setTimeout(() => {
-      toggleTask(taskId)
-      setCompletingTaskIds((current) => {
-        const next = new Set(current)
-        next.delete(taskId)
-        return next
-      })
-      completionTimersRef.current.delete(taskId)
-    }, 220)
-
-    completionTimersRef.current.set(taskId, timerId)
-  }
-
-  const onMinimize = () => {
-    minimizeWindow().catch((error) => {
-      console.error('Could not minimize window', error)
-    })
-  }
-
-  const onClose = () => {
-    if (!window.confirm('Czy na pewno chcesz zamknac aplikacje?')) {
-      return
-    }
-
-    closeWindow().catch((error) => {
-      console.error('Could not close window', error)
-    })
-  }
-
-  const onTopBarKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
-    if (event.key === 'Escape' && settingsOpen) {
-      setSettingsOpen(false)
+      const targetContainer = overId.replace('container-', '')
+      const sourceTask = taskMap.get(taskId)
+      if (sourceTask?.groupId && targetContainer === 'ungrouped') {
+        return
+      }
+      reorderTask(taskId, targetContainer)
     }
   }
 
@@ -343,46 +289,19 @@ function App() {
     })}`
   }, [lastSavedAt])
 
-  useEffect(() => {
-    const timers = completionTimersRef.current
-    return () => {
-      for (const timer of timers.values()) {
-        window.clearTimeout(timer)
-      }
-      timers.clear()
+  const onTopBarKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key === 'Escape' && settingsOpen) {
+      setSettingsOpen(false)
     }
-  }, [])
-
-  useEffect(() => {
-    if (!loaded) {
-      return
-    }
-
-    if (lastModeRef.current !== 'floating' && settings.mode === 'floating') {
-      fullModeSizeRef.current = {
-        width: settings.windowWidth,
-        height: settings.windowHeight,
-      }
-
-      applyWindowSize(440, 320).catch((error) => {
-        console.error('Could not resize floating mode', error)
-      })
-    }
-
-    if (lastModeRef.current === 'floating' && settings.mode !== 'floating') {
-      const previousFullSize = fullModeSizeRef.current
-      if (previousFullSize) {
-        applyWindowSize(previousFullSize.width, previousFullSize.height).catch((error) => {
-          console.error('Could not restore full mode size', error)
-        })
-      }
-    }
-
-    lastModeRef.current = settings.mode
-  }, [loaded, settings.mode, settings.windowHeight, settings.windowWidth])
+  }
 
   if (!loaded) {
-    return <main className="app-shell loading">Loading queue...</main>
+    return (
+      <main className="app-shell loading" aria-busy="true" aria-live="polite">
+        <div className="loading-indicator" />
+        <p>Loading TaskQueue...</p>
+      </main>
+    )
   }
 
   return (
@@ -393,105 +312,134 @@ function App() {
           <button className="update-banner-install" onClick={handleInstallUpdate}>
             Install &amp; Restart
           </button>
-          <button className="update-banner-dismiss" onClick={() => setUpdateVersion(null)}>
+          <button className="update-banner-dismiss" onClick={dismissUpdate}>
             Later
           </button>
         </div>
       )}
-      <TitleBar
-        mode={settings.mode}
-        settingsOpen={settingsOpen}
-        saveStatusLabel={lastSavedLabel}
-        onStartDrag={() => {
-          startWindowDragging().catch((error) => {
-            console.error('Drag start failed', error)
-          })
-        }}
-        onToggleMode={toggleMode}
-        onToggleSettings={() => setSettingsOpen((value) => !value)}
-        onMinimize={onMinimize}
-        onClose={onClose}
-        onSnap={() => {
-          snapWindowToCorner().catch((error) => {
-            console.error('Snap failed', error)
-          })
-        }}
-      />
 
-      <SettingsMenu
-        isOpen={settingsOpen}
-        menuRef={settingsMenuRef}
-        appVersion={appVersion}
-        opacity={settings.opacity}
-        stickyMode={settings.stickyMode}
-        onOpacityChange={setOpacity}
-        onStickyChange={setStickyMode}
-      />
+      {settings.mode === 'full' ? (
+        <>
+          <TitleBar
+            mode={settings.mode}
+            settingsOpen={settingsOpen}
+            saveStatusLabel={lastSavedLabel}
+            onStartDrag={() => {
+              startWindowDragging().catch((error) => {
+                console.error('Drag start failed', error)
+              })
+            }}
+            onToggleMode={toggleMode}
+            onToggleSettings={() => setSettingsOpen((value) => !value)}
+            onMinimize={() => {
+              minimizeWindow().catch((error) => {
+                console.error('Could not minimize window', error)
+              })
+            }}
+            onClose={() => {
+              closeWindow().catch((error) => {
+                console.error('Could not close window', error)
+              })
+            }}
+            onSnap={() => {
+              snapWindowToCorner().catch((error) => {
+                console.error('Snap failed', error)
+              })
+            }}
+          />
+
+          <SettingsMenu
+            isOpen={settingsOpen}
+            menuRef={settingsMenuRef}
+            appVersion={appVersion}
+            opacity={settings.opacity}
+            stickyMode={settings.stickyMode}
+            hideCompleted={settings.hideCompleted}
+            soundsEnabled={settings.soundsEnabled}
+            onOpacityChange={setOpacity}
+            onStickyChange={setStickyMode}
+            onHideCompletedChange={setHideCompleted}
+            onSoundsEnabledChange={setSoundsEnabled}
+            onDeleteCompleted={() => requestPurgeCompleted(purgeCompleted)}
+          />
+        </>
+      ) : null}
 
       {settings.mode === 'floating' ? (
         <FloatingModePanel
           tasks={floatingTasks}
           groupNames={groupNameMap}
+          completingTaskIds={completingTaskIds}
           onToggleTask={onToggleTaskAnimated}
+          onPromoteTask={setFloatingPromotedTaskId}
           onSwitchToFull={() => setMode('full')}
+          onStartDrag={() => {
+            startWindowDragging().catch((error) => {
+              console.error('Floating drag start failed', error)
+            })
+          }}
         />
       ) : (
-        <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={collisionDetection}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+        >
           <section className="full-layout">
-            <div className="queue-scroll">
+            <div ref={queueScrollRef} className="queue-scroll">
               <TaskColumn
                 id="ungrouped"
                 title="Backlog"
                 taskIds={ungroupedTaskIds}
                 taskMap={taskMap}
+                groupNameMap={groupNameMap}
+                backlogMirrorBySourceId={backlogMirrorBySourceId}
                 completingTaskIds={completingTaskIds}
                 onToggle={onToggleTaskAnimated}
                 onUpdate={updateTask}
-                onDelete={removeTask}
-                onCreateTask={onComposerCreateTask}
-                onCreateTasksFromPaste={onComposerPaste}
-                onCreateGroupCommand={onComposerCreateGroup}
+                onDelete={(taskId) => requestDeleteTask(taskId, removeTask)}
+                onAddToBacklog={onAddToBacklogWithToast}
+                onRemoveFromBacklog={onRemoveFromBacklogWithSound}
               />
 
-              <SortableContext id="group-order" items={groups.map((group) => `group-${group.id}`)} strategy={verticalListSortingStrategy}>
+              <SortableContext
+                id="group-order"
+                items={groups.map((group) => `group-${group.id}`)}
+                strategy={verticalListSortingStrategy}
+              >
                 {groups.map((group) => (
                   <SortableGroupSection
                     key={group.id}
                     group={group}
                     taskIds={groupTaskIds.get(group.id) ?? []}
                     taskMap={taskMap}
+                    groupNameMap={groupNameMap}
+                    backlogMirrorBySourceId={backlogMirrorBySourceId}
+                    doneCount={groupProgress.get(group.id)?.done ?? 0}
+                    totalCount={groupProgress.get(group.id)?.total ?? 0}
                     completingTaskIds={completingTaskIds}
                     onToggleTask={onToggleTaskAnimated}
                     onUpdateTask={updateTask}
-                    onDeleteTask={removeTask}
+                    onDeleteTask={(taskId) => requestDeleteTask(taskId, removeTask)}
+                    onAddToBacklog={onAddToBacklogWithToast}
+                    onRemoveFromBacklog={onRemoveFromBacklogWithSound}
                     onToggleGroupCollapsed={toggleGroupCollapsed}
                     onRenameGroup={renameGroup}
-                    onCreateTaskInGroup={onComposerCreateTask}
-                    onCreateTasksFromPaste={onComposerPaste}
-                    onCreateGroupCommand={onComposerCreateGroup}
+                    onDeleteGroup={(groupId) =>
+                      requestDeleteGroup(groupId, groupNameMap.get(groupId) ?? 'this group', removeGroup)
+                    }
+                    onCreateTaskInGroup={addTask}
+                    onCreateTasksFromPaste={addTasksFromPaste}
                   />
                 ))}
               </SortableContext>
 
-              <section className="completed-block">
-                <button type="button" className="completed-toggle" onClick={toggleCompletedCollapsed}>
-                  Completed ({completedTasks.length}) {settings.completedCollapsed ? '+' : '-'}
-                </button>
-
-                {!settings.completedCollapsed && (
-                  <div className="completed-list">
-                    {completedTasks.length ? (
-                      completedTasks.map((task) => (
-                        <article key={task.id} className="completed-item">
-                          <button type="button" className="task-check checked" onClick={() => onToggleTaskAnimated(task.id)} />
-                          <span>{task.content}</span>
-                        </article>
-                      ))
-                    ) : (
-                      <div className="task-empty">Nothing completed yet</div>
-                    )}
-                  </div>
-                )}
+              <section className="task-column add-group-block">
+                <header className="task-column-title">Groups</header>
+                <div className="task-column-shell">
+                  <AddGroupComposer onCreateGroup={createGroup} />
+                </div>
               </section>
             </div>
           </section>
@@ -499,8 +447,29 @@ function App() {
           <DragOverlay>
             {activeTaskId ? <DragPreview task={taskMap.get(activeTaskId)} /> : null}
           </DragOverlay>
+
+          {backlogToast ? (
+            <div className="backlog-toast" role="status" aria-live="polite">
+              Added to Backlog ↑
+            </div>
+          ) : null}
         </DndContext>
       )}
+
+      <ConfirmDialog
+        open={Boolean(confirmRequest)}
+        title={confirmRequest?.title ?? ''}
+        message={confirmRequest?.message ?? ''}
+        confirmLabel={confirmRequest?.confirmLabel}
+        cancelLabel={confirmRequest?.cancelLabel}
+        destructive={confirmRequest?.destructive}
+        onCancel={() => setConfirmRequest(null)}
+        onConfirm={() => {
+          const action = confirmRequest?.onConfirm
+          setConfirmRequest(null)
+          action?.()
+        }}
+      />
     </main>
   )
 }
