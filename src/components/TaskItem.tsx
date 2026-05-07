@@ -102,21 +102,21 @@ export function TaskItem({
       </div>
 
       <div className="task-actions">
+        <button className="task-delete" type="button" onClick={() => onDelete(task.id)} aria-label="Delete task">
+          ×
+        </button>
+
         {backlogActionMode && onBacklogAction ? (
           <button
             className={`task-action task-backlog-btn ${backlogActionMode === 'remove' ? 'is-remove' : 'is-add'}`}
             type="button"
             aria-label={backlogActionMode === 'remove' ? 'Remove from backlog' : 'Add to backlog'}
-            title={backlogActionMode === 'remove' ? 'Remove from backlog' : 'Add to backlog'}
+            data-tooltip={backlogActionMode === 'remove' ? 'Remove from backlog' : 'Add to backlog'}
             onClick={onBacklogAction}
           >
             {backlogActionMode === 'remove' ? '↓' : '↑'}
           </button>
         ) : null}
-
-        <button className="task-delete" type="button" onClick={() => onDelete(task.id)} aria-label="Delete task">
-          ×
-        </button>
       </div>
 
     </article>

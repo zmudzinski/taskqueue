@@ -45,14 +45,14 @@ export function TitleBar({
   return (
     <header className="titlebar" onMouseDown={handleHeaderMouseDown} onDoubleClick={handleHeaderDoubleClick}>
       <div className="titlebar-left">
-        <strong>TaskQueue</strong>
+        <strong>TASKQUEUE</strong>
         <span>{saveStatusLabel}</span>
       </div>
 
       <div className="titlebar-drag-space" />
 
       <div className="titlebar-right" data-no-drag="true">
-        <Button variant="outline" size="icon" className="titlebar-icon-btn titlebar-mode-btn" aria-label="Switch to floating mode" onClick={onToggleMode}>
+        <Button variant="outline" size="icon" className="titlebar-icon-btn titlebar-mode-btn" aria-label="Switch mode" onClick={onToggleMode}>
           <Play />
         </Button>
         <Button variant="ghost" size="icon" className="titlebar-icon-btn" aria-label="Minimize window" onClick={onMinimize}>

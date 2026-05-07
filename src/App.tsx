@@ -15,6 +15,8 @@ import {
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { loadState } from './lib/persistence'
 import {
+  applyWindowSize,
+  dockWindowToCorner,
   closeWindow,
   minimizeWindow,
   snapWindowToCorner,
@@ -40,6 +42,17 @@ import { TaskColumn } from './components/TaskColumn'
 import { TitleBar } from './components/TitleBar'
 import { ConfirmDialog } from './components/ui/ConfirmDialog'
 import './App.css'
+
+// These constants MUST match the CSS values in App.css
+const FLOATING_HEADER_H = 44         // .titlebar height
+const FLOATING_CURRENT_ROW_H = 44    // .floating-main-task height (border-bottom included)
+const FLOATING_QUEUE_CHROME_H = 0    // no extra chrome — border is inside current row
+const FLOATING_QUEUE_ROW_H = 34      // .floating-queue-item height
+
+function getCollapsedFloatingHeight(visibleNextCount: number): number {
+  const rows = Math.max(2, Math.round(visibleNextCount))
+  return FLOATING_HEADER_H + FLOATING_CURRENT_ROW_H + FLOATING_QUEUE_CHROME_H + rows * FLOATING_QUEUE_ROW_H
+}
 
 function App() {
   const appVersion = __APP_VERSION__
@@ -67,9 +80,12 @@ function App() {
     toggleMode,
     setOpacity,
     setWindowSize,
+    setFloatingWindowSize,
     setStickyMode,
     setHideCompleted,
     setSoundsEnabled,
+    setThemeMode,
+    setFloatingVisibleNextCount,
     purgeCompleted,
     undoLastAction,
     getPersistedState,
@@ -79,6 +95,8 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
   const [floatingPromotedTaskId, setFloatingPromotedTaskId] = useState<string | null>(null)
+  const [floatingQueueExpanded, setFloatingQueueExpanded] = useState(false)
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null)
 
   const settingsMenuRef = useRef<HTMLElement | null>(null)
   const queueScrollRef = useRef<HTMLDivElement | null>(null)
@@ -91,6 +109,7 @@ function App() {
   useCloseRequest({ setConfirmRequest })
 
   const {
+    sortedTasks,
     taskMap,
     groupNameMap,
     floatingTasks,
@@ -115,7 +134,7 @@ function App() {
     },
   })
 
-  const { backlogToast, onAddToBacklogWithToast, onRemoveFromBacklogWithSound } = useBacklogActions({
+  const { onAddToBacklogWithSound, onRemoveFromBacklogWithSound } = useBacklogActions({
     soundsEnabled: settings.soundsEnabled,
     backlogSourceTaskIds,
     scrollContainerRef: queueScrollRef,
@@ -129,6 +148,7 @@ function App() {
     mode: settings.mode,
     windowWidth: settings.windowWidth,
     windowHeight: settings.windowHeight,
+    floatingWindowHeight: settings.floatingWindowHeight,
   })
 
   useEffect(() => {
@@ -161,7 +181,23 @@ function App() {
 
   useEffect(() => {
     document.documentElement.style.setProperty('--surface-alpha', String(settings.opacity))
+    document.documentElement.dataset.floatingContrast = settings.opacity <= 0.45 ? 'light' : 'normal'
   }, [settings.opacity])
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+
+    const applyTheme = () => {
+      const resolved = settings.themeMode === 'system'
+        ? (media.matches ? 'dark' : 'light')
+        : settings.themeMode
+      document.documentElement.dataset.theme = resolved
+    }
+
+    applyTheme()
+    media.addEventListener('change', applyTheme)
+    return () => media.removeEventListener('change', applyTheme)
+  }, [settings.themeMode])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -194,7 +230,7 @@ function App() {
     onSaved: setLastSavedAt,
   })
 
-  useWindowSync({ loaded, settings, setWindowSize })
+  useWindowSync({ loaded, settings, setWindowSize, setFloatingWindowSize })
   useGlobalShortcuts({ getPersistedState, undoLastAction })
 
   const sensors = useSensors(
@@ -214,6 +250,13 @@ function App() {
     const id = String(event.active.id)
     if (id.startsWith('task-')) {
       setActiveTaskId(id.replace('task-', ''))
+      setActiveGroupId(null)
+      return
+    }
+
+    if (id.startsWith('group-')) {
+      setActiveGroupId(id.replace('group-', ''))
+      setActiveTaskId(null)
     }
   }
 
@@ -221,6 +264,7 @@ function App() {
     const activeId = String(event.active.id)
     const overId = event.over ? String(event.over.id) : null
     setActiveTaskId(null)
+    setActiveGroupId(null)
 
     if (!overId) {
       return
@@ -240,7 +284,7 @@ function App() {
         targetGroupId = taskMap.get(targetTaskId)?.groupId
       }
 
-      if (targetGroupId && targetGroupId !== groupId) {
+      if (targetGroupId !== groupId) {
         reorderGroup(groupId, targetGroupId)
       }
       return
@@ -263,7 +307,19 @@ function App() {
       if (sourceTask?.groupId && !targetTask.groupId) {
         return
       }
-      reorderTask(taskId, targetContainer, targetTaskId)
+      const translatedRect = event.active.rect.current.translated
+      const overRect = event.over?.rect
+      if (!overRect) {
+        reorderTask(taskId, targetContainer, targetTaskId)
+        return
+      }
+      const activeCenterY = translatedRect
+        ? translatedRect.top + translatedRect.height / 2
+        : null
+      const overMiddleY = overRect.top + overRect.height / 2
+      const targetPosition = activeCenterY != null && activeCenterY < overMiddleY ? 'before' : 'after'
+
+      reorderTask(taskId, targetContainer, targetTaskId, targetPosition)
       return
     }
 
@@ -293,6 +349,76 @@ function App() {
     if (event.key === 'Escape' && settingsOpen) {
       setSettingsOpen(false)
     }
+  }
+
+  useEffect(() => {
+    if (settings.mode !== 'floating') {
+      if (floatingQueueExpanded) {
+        setFloatingQueueExpanded(false)
+      }
+      return
+    }
+
+    const collapsedHeight = getCollapsedFloatingHeight(settings.floatingVisibleNextCount)
+    setFloatingQueueExpanded(settings.floatingWindowHeight > collapsedHeight + 20)
+  }, [settings.mode, settings.floatingWindowHeight, settings.floatingVisibleNextCount, floatingQueueExpanded])
+
+  useEffect(() => {
+    if (!loaded || settings.mode !== 'floating' || floatingQueueExpanded) {
+      return
+    }
+
+    const collapsedHeight = getCollapsedFloatingHeight(settings.floatingVisibleNextCount)
+    if (Math.abs(settings.floatingWindowHeight - collapsedHeight) <= 1) {
+      return
+    }
+
+    setFloatingWindowSize(settings.windowWidth, collapsedHeight)
+    applyWindowSize(settings.windowWidth, collapsedHeight).catch((error) => {
+      console.error('Could not align collapsed floating height', error)
+    })
+  }, [
+    loaded,
+    settings.mode,
+    settings.windowWidth,
+    settings.floatingVisibleNextCount,
+    settings.floatingWindowHeight,
+    floatingQueueExpanded,
+    setFloatingWindowSize,
+  ])
+
+  const activeGroup = useMemo(
+    () => (activeGroupId ? groups.find((group) => group.id === activeGroupId) ?? null : null),
+    [activeGroupId, groups],
+  )
+
+  const floatingProgress = useMemo(() => {
+    let completed = 0
+    for (const task of sortedTasks) {
+      if (task.completed) {
+        completed += 1
+      }
+    }
+
+    return {
+      completed,
+      total: sortedTasks.length,
+    }
+  }, [sortedTasks])
+
+  const onToggleFloatingQueueExpanded = () => {
+    const nextExpanded = !floatingQueueExpanded
+    const collapsedHeight = getCollapsedFloatingHeight(settings.floatingVisibleNextCount)
+    const minExtraRows = 3
+    const desiredRows = Math.max(minExtraRows, Math.max(0, floatingTasks.length - settings.floatingVisibleNextCount))
+    const expandedHeight = Math.min(560, collapsedHeight + desiredRows * FLOATING_QUEUE_ROW_H)
+    const nextHeight = nextExpanded ? expandedHeight : collapsedHeight
+
+    setFloatingQueueExpanded(nextExpanded)
+    setFloatingWindowSize(settings.windowWidth, nextHeight)
+    applyWindowSize(settings.windowWidth, nextHeight).catch((error) => {
+      console.error('Floating height update failed', error)
+    })
   }
 
   if (!loaded) {
@@ -356,10 +482,14 @@ function App() {
             stickyMode={settings.stickyMode}
             hideCompleted={settings.hideCompleted}
             soundsEnabled={settings.soundsEnabled}
+            themeMode={settings.themeMode}
+            floatingVisibleNextCount={settings.floatingVisibleNextCount}
             onOpacityChange={setOpacity}
             onStickyChange={setStickyMode}
             onHideCompletedChange={setHideCompleted}
             onSoundsEnabledChange={setSoundsEnabled}
+            onThemeModeChange={setThemeMode}
+            onFloatingVisibleNextCountChange={setFloatingVisibleNextCount}
             onDeleteCompleted={() => requestPurgeCompleted(purgeCompleted)}
           />
         </>
@@ -368,14 +498,29 @@ function App() {
       {settings.mode === 'floating' ? (
         <FloatingModePanel
           tasks={floatingTasks}
+          totalTasks={floatingProgress.total}
+          completedTasks={floatingProgress.completed}
           groupNames={groupNameMap}
           completingTaskIds={completingTaskIds}
           onToggleTask={onToggleTaskAnimated}
           onPromoteTask={setFloatingPromotedTaskId}
+          visibleNextCount={settings.floatingVisibleNextCount}
+          isQueueExpanded={floatingQueueExpanded}
           onSwitchToFull={() => setMode('full')}
+          onToggleQueueExpanded={onToggleFloatingQueueExpanded}
           onStartDrag={() => {
             startWindowDragging().catch((error) => {
               console.error('Floating drag start failed', error)
+            })
+          }}
+          onSnap={() => {
+            snapWindowToCorner().catch((error) => {
+              console.error('Floating snap failed', error)
+            })
+          }}
+          onDockCorner={(corner) => {
+            dockWindowToCorner(corner).catch((error) => {
+              console.error('Dock failed', error)
             })
           }}
         />
@@ -399,7 +544,7 @@ function App() {
                 onToggle={onToggleTaskAnimated}
                 onUpdate={updateTask}
                 onDelete={(taskId) => requestDeleteTask(taskId, removeTask)}
-                onAddToBacklog={onAddToBacklogWithToast}
+                onAddToBacklog={onAddToBacklogWithSound}
                 onRemoveFromBacklog={onRemoveFromBacklogWithSound}
               />
 
@@ -422,7 +567,7 @@ function App() {
                     onToggleTask={onToggleTaskAnimated}
                     onUpdateTask={updateTask}
                     onDeleteTask={(taskId) => requestDeleteTask(taskId, removeTask)}
-                    onAddToBacklog={onAddToBacklogWithToast}
+                    onAddToBacklog={onAddToBacklogWithSound}
                     onRemoveFromBacklog={onRemoveFromBacklogWithSound}
                     onToggleGroupCollapsed={toggleGroupCollapsed}
                     onRenameGroup={renameGroup}
@@ -446,13 +591,13 @@ function App() {
 
           <DragOverlay>
             {activeTaskId ? <DragPreview task={taskMap.get(activeTaskId)} /> : null}
+            {!activeTaskId && activeGroup ? (
+              <div className="group-drag-preview">
+                <span className="group-drag-preview-name">{activeGroup.name}</span>
+                <span className="group-drag-preview-count">{groupTaskIds.get(activeGroup.id)?.length ?? 0}</span>
+              </div>
+            ) : null}
           </DragOverlay>
-
-          {backlogToast ? (
-            <div className="backlog-toast" role="status" aria-live="polite">
-              Added to Backlog ↑
-            </div>
-          ) : null}
         </DndContext>
       )}
 

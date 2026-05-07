@@ -107,17 +107,15 @@ export function SortableGroupSection({
         )}
 
         <div className="group-header-actions">
-          {group.id !== 'primary-today' ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Delete group"
-              onClick={() => onDeleteGroup(group.id)}
-            >
-              <Trash2 size={14} />
-            </Button>
-          ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Delete group"
+            onClick={() => onDeleteGroup(group.id)}
+          >
+            <Trash2 size={14} />
+          </Button>
           <Button
             type="button"
             className="group-drag-handle"

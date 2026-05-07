@@ -12,7 +12,9 @@ export function DragPreview({ task }: DragPreviewProps) {
   return (
     <article className="task-item drag-preview">
       <div className="task-check" />
-      <div className="task-body">{task.content}</div>
+      <div className="task-body">
+        <p className="task-content drag-preview-content">{task.content}</p>
+      </div>
     </article>
   )
 }
