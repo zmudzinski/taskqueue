@@ -13,6 +13,8 @@ type TaskColumnProps = {
   groupNameMap: Map<string, string>
   backlogMirrorBySourceId: Map<string, string>
   completingTaskIds: Set<string>
+  overTaskId?: string | null
+  overPosition?: 'before' | 'after'
   onToggle: (taskId: string) => void
   onUpdate: (taskId: string, value: string) => void
   onDelete: (taskId: string) => void
@@ -31,6 +33,8 @@ export function TaskColumn({
   groupNameMap,
   backlogMirrorBySourceId,
   completingTaskIds,
+  overTaskId,
+  overPosition,
   onToggle,
   onUpdate,
   onDelete,
@@ -95,6 +99,7 @@ export function TaskColumn({
                     }
                     backlogActionMode={backlogActionMode}
                     isCompleting={completingTaskIds.has(task.id)}
+                    dropIndicator={overTaskId === task.id ? overPosition : undefined}
                     onToggle={onToggle}
                     onUpdate={onUpdate}
                     onDelete={onDelete}

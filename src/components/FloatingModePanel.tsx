@@ -10,6 +10,7 @@ type FloatingModePanelProps = {
   totalTasks: number
   completedTasks: number
   groupNames: Map<string, string>
+  taskMap: Map<string, Task>
   completingTaskIds: Set<string>
   onToggleTask: (taskId: string) => void
   onPromoteTask: (taskId: string) => void
@@ -27,6 +28,7 @@ export function FloatingModePanel({
   totalTasks,
   completedTasks,
   groupNames,
+  taskMap,
   completingTaskIds,
   onToggleTask,
   onPromoteTask,
@@ -73,10 +75,16 @@ export function FloatingModePanel({
   }, [dockMenuOpen])
 
   const getGroupLabel = (task: Task): string => {
-    if (!task.groupId) {
-      return 'Unassigned'
+    if (task.groupId) {
+      return groupNames.get(task.groupId) ?? 'Group'
     }
-    return groupNames.get(task.groupId) ?? 'Group'
+    if (task.sourceTaskId) {
+      const sourceGroupId = taskMap.get(task.sourceTaskId)?.groupId
+      if (sourceGroupId) {
+        return groupNames.get(sourceGroupId) ?? 'Group'
+      }
+    }
+    return 'Unassigned'
   }
 
   return (

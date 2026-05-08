@@ -23,8 +23,10 @@ export function useWindowSync({
     }
 
     restoredWindowSize.current = true
-    const restoreWidth = settings.windowWidth
-    const restoreHeight = settings.mode === 'floating' ? settings.floatingWindowHeight : settings.windowHeight
+    const MAX_LOGICAL = 2560
+    const restoreWidth = Math.min(settings.windowWidth, MAX_LOGICAL)
+    const rawHeight = settings.mode === 'floating' ? settings.floatingWindowHeight : settings.windowHeight
+    const restoreHeight = Math.min(rawHeight, MAX_LOGICAL)
     applyWindowSize(restoreWidth, restoreHeight).catch((error) => {
       console.error('Could not restore window size', error)
     })

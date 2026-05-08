@@ -39,7 +39,7 @@ export function useDerivedTaskData({
   )
 
   const floatingTasks = useMemo(() => {
-    const openTasks = sortedTasks.filter((task) => !task.completed)
+    const openTasks = sortedTasks.filter((task) => !task.completed && !task.groupId)
     if (!promotedTaskId) {
       return openTasks
     }

@@ -8,6 +8,7 @@ type TaskItemProps = {
   isCompleting?: boolean
   sourceGroupName?: string
   backlogActionMode?: 'add' | 'remove'
+  dropIndicator?: 'before' | 'after'
   onToggle: (taskId: string) => void
   onUpdate: (taskId: string, value: string) => void
   onDelete: (taskId: string) => void
@@ -19,6 +20,7 @@ export function TaskItem({
   isCompleting,
   sourceGroupName,
   backlogActionMode,
+  dropIndicator,
   onToggle,
   onUpdate,
   onDelete,
@@ -31,17 +33,20 @@ export function TaskItem({
     id: `task-${task.id}`,
   })
 
+  // We use DragOverlay for the visual drag preview and a blue-line indicator
+  // for drop position. Suppress transforms on all items so the list doesn't
+  // shift around creating a competing "slot" placeholder.
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.48 : 1,
+    transform: isDragging ? CSS.Transform.toString(transform) : undefined,
+    transition: isDragging ? undefined : transition,
+    opacity: isDragging ? 0 : 1,
   }
 
   return (
     <article
       ref={setNodeRef}
       style={style}
-      className={`task-item ${task.completed ? 'is-done' : ''} ${isCompleting ? 'is-completing' : ''}`}
+      className={`task-item ${task.completed ? 'is-done' : ''} ${isCompleting ? 'is-completing' : ''} ${dropIndicator ? `drop-indicator-${dropIndicator}` : ''}`}
     >
       <button className="task-handle" type="button" {...attributes} {...listeners} aria-label="Drag task">
         <span className="drag-dots" aria-hidden="true">

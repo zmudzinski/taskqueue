@@ -15,6 +15,8 @@ type SortableGroupSectionProps = {
   doneCount: number
   totalCount: number
   completingTaskIds: Set<string>
+  overTaskId?: string | null
+  overPosition?: 'before' | 'after'
   onToggleTask: (taskId: string) => void
   onUpdateTask: (taskId: string, value: string) => void
   onDeleteTask: (taskId: string) => void
@@ -36,6 +38,8 @@ export function SortableGroupSection({
   doneCount,
   totalCount,
   completingTaskIds,
+  overTaskId,
+  overPosition,
   onToggleTask,
   onUpdateTask,
   onDeleteTask,
@@ -146,6 +150,8 @@ export function SortableGroupSection({
         groupNameMap={groupNameMap}
         backlogMirrorBySourceId={backlogMirrorBySourceId}
         completingTaskIds={completingTaskIds}
+        overTaskId={overTaskId}
+        overPosition={overPosition}
         onToggle={onToggleTask}
         onUpdate={onUpdateTask}
         onDelete={onDeleteTask}

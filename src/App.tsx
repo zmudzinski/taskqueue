@@ -10,6 +10,7 @@ import {
   useSensors,
   type CollisionDetection,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -92,7 +93,11 @@ function App() {
   } = useTaskQueueStore()
 
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
+  const [overTaskId, setOverTaskId] = useState<string | null>(null)
+  const [overPosition, setOverPosition] = useState<'before' | 'after'>('after')
   const [settingsOpen, setSettingsOpen] = useState(false)
+    const overTaskIdRef = useRef<string | null>(null)
+    const overPositionRef = useRef<'before' | 'after'>('after')
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
   const [floatingPromotedTaskId, setFloatingPromotedTaskId] = useState<string | null>(null)
   const [floatingQueueExpanded, setFloatingQueueExpanded] = useState(false)
@@ -248,6 +253,7 @@ function App() {
 
   const onDragStart = (event: DragStartEvent) => {
     const id = String(event.active.id)
+    setOverTaskId(null)
     if (id.startsWith('task-')) {
       setActiveTaskId(id.replace('task-', ''))
       setActiveGroupId(null)
@@ -260,7 +266,28 @@ function App() {
     }
   }
 
+  const onDragOver = (event: DragOverEvent) => {
+    const overId = event.over ? String(event.over.id) : null
+    if (!overId?.startsWith('task-')) {
+      setOverTaskId(null)
+      return
+    }
+    const targetTaskId = overId.replace('task-', '')
+    const translatedRect = event.active.rect.current.translated
+    const overRect = event.over?.rect
+    if (translatedRect && overRect) {
+      const activeCenterY = translatedRect.top + translatedRect.height / 2
+      const pos = activeCenterY < overRect.top + overRect.height / 2 ? 'before' : 'after'
+      setOverPosition(pos)
+      overPositionRef.current = pos
+    }
+    setOverTaskId(targetTaskId)
+    overTaskIdRef.current = targetTaskId
+  }
+
   const onDragEnd = (event: DragEndEvent) => {
+      overTaskIdRef.current = null
+    setOverTaskId(null)
     const activeId = String(event.active.id)
     const overId = event.over ? String(event.over.id) : null
     setActiveTaskId(null)
@@ -307,18 +334,10 @@ function App() {
       if (sourceTask?.groupId && !targetTask.groupId) {
         return
       }
-      const translatedRect = event.active.rect.current.translated
-      const overRect = event.over?.rect
-      if (!overRect) {
-        reorderTask(taskId, targetContainer, targetTaskId)
-        return
-      }
-      const activeCenterY = translatedRect
-        ? translatedRect.top + translatedRect.height / 2
-        : null
-      const overMiddleY = overRect.top + overRect.height / 2
-      const targetPosition = activeCenterY != null && activeCenterY < overMiddleY ? 'before' : 'after'
-
+      // Use the position tracked by onDragOver (same source as the blue-line indicator)
+      const targetPosition = overTaskIdRef.current === targetTaskId
+        ? overPositionRef.current
+        : 'after'
       reorderTask(taskId, targetContainer, targetTaskId, targetPosition)
       return
     }
@@ -351,11 +370,14 @@ function App() {
     }
   }
 
+  const prevFloatingQueueExpandedRef = useRef(false)
+
   useEffect(() => {
     if (settings.mode !== 'floating') {
       if (floatingQueueExpanded) {
         setFloatingQueueExpanded(false)
       }
+      prevFloatingQueueExpandedRef.current = false
       return
     }
 
@@ -364,23 +386,37 @@ function App() {
   }, [settings.mode, settings.floatingWindowHeight, settings.floatingVisibleNextCount, floatingQueueExpanded])
 
   useEffect(() => {
+    const wasExpanded = prevFloatingQueueExpandedRef.current
+    prevFloatingQueueExpandedRef.current = floatingQueueExpanded
+
     if (!loaded || settings.mode !== 'floating' || floatingQueueExpanded) {
       return
     }
 
+    // Only snap to collapsed height when:
+    // 1. Queue was just collapsed (expanded → collapsed transition), or
+    // 2. The visible row count changed (need to recalculate height)
     const collapsedHeight = getCollapsedFloatingHeight(settings.floatingVisibleNextCount)
-    if (Math.abs(settings.floatingWindowHeight - collapsedHeight) <= 1) {
+    const justCollapsed = wasExpanded && !floatingQueueExpanded
+    const alreadyAtCollapsedHeight = Math.abs(settings.floatingWindowHeight - collapsedHeight) <= 1
+
+    if (!justCollapsed && alreadyAtCollapsedHeight) {
       return
     }
 
-    setFloatingWindowSize(settings.windowWidth, collapsedHeight)
-    applyWindowSize(settings.windowWidth, collapsedHeight).catch((error) => {
+    if (!justCollapsed && !wasExpanded) {
+      // User is manually resizing while collapsed — don't fight them
+      return
+    }
+
+    setFloatingWindowSize(settings.floatingWindowWidth, collapsedHeight)
+    applyWindowSize(settings.floatingWindowWidth, collapsedHeight).catch((error) => {
       console.error('Could not align collapsed floating height', error)
     })
   }, [
     loaded,
     settings.mode,
-    settings.windowWidth,
+    settings.floatingWindowWidth,
     settings.floatingVisibleNextCount,
     settings.floatingWindowHeight,
     floatingQueueExpanded,
@@ -393,8 +429,9 @@ function App() {
   )
 
   const floatingProgress = useMemo(() => {
+    const backlogTasks = sortedTasks.filter((task) => !task.groupId)
     let completed = 0
-    for (const task of sortedTasks) {
+    for (const task of backlogTasks) {
       if (task.completed) {
         completed += 1
       }
@@ -402,7 +439,7 @@ function App() {
 
     return {
       completed,
-      total: sortedTasks.length,
+      total: backlogTasks.length,
     }
   }, [sortedTasks])
 
@@ -500,6 +537,7 @@ function App() {
           totalTasks={floatingProgress.total}
           completedTasks={floatingProgress.completed}
           groupNames={groupNameMap}
+          taskMap={taskMap}
           completingTaskIds={completingTaskIds}
           onToggleTask={onToggleTaskAnimated}
           onPromoteTask={setFloatingPromotedTaskId}
@@ -528,6 +566,7 @@ function App() {
           sensors={sensors}
           collisionDetection={collisionDetection}
           onDragStart={onDragStart}
+          onDragOver={onDragOver}
           onDragEnd={onDragEnd}
         >
           <section className="full-layout">
@@ -540,6 +579,8 @@ function App() {
                 groupNameMap={groupNameMap}
                 backlogMirrorBySourceId={backlogMirrorBySourceId}
                 completingTaskIds={completingTaskIds}
+                overTaskId={overTaskId}
+                overPosition={overPosition}
                 onToggle={onToggleTaskAnimated}
                 onUpdate={updateTask}
                 onDelete={(taskId) => requestDeleteTask(taskId, removeTask)}
@@ -563,6 +604,8 @@ function App() {
                     doneCount={groupProgress.get(group.id)?.done ?? 0}
                     totalCount={groupProgress.get(group.id)?.total ?? 0}
                     completingTaskIds={completingTaskIds}
+                    overTaskId={overTaskId}
+                    overPosition={overPosition}
                     onToggleTask={onToggleTaskAnimated}
                     onUpdateTask={updateTask}
                     onDeleteTask={(taskId) => requestDeleteTask(taskId, removeTask)}
