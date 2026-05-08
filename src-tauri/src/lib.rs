@@ -80,6 +80,36 @@ async fn install_update(
   Ok(())
 }
 
+/// Manual update check triggered from UI — release builds only.
+#[cfg(not(debug_assertions))]
+#[tauri::command]
+async fn check_for_update(
+  app: tauri::AppHandle,
+  pending: tauri::State<'_, PendingUpdate>,
+) -> Result<Option<String>, String> {
+  let updater = app
+    .updater_builder()
+    .build()
+    .map_err(|e| e.to_string())?;
+  match updater.check().await {
+    Ok(Some(update)) => {
+      let version = update.version.clone();
+      *pending.0.lock().unwrap() = Some(update);
+      let _ = app.emit("update-available", version.clone());
+      Ok(Some(version))
+    }
+    Ok(None) => Ok(None),
+    Err(e) => Err(e.to_string()),
+  }
+}
+
+/// No-op stub for debug builds (updater plugin not wired in dev).
+#[cfg(debug_assertions)]
+#[tauri::command]
+async fn check_for_update() -> Result<Option<String>, String> {
+  Ok(None)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -124,6 +154,7 @@ pub fn run() {
       load_state,
       toggle_main_window,
       install_update,
+      check_for_update,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

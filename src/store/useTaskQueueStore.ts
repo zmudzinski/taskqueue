@@ -56,6 +56,7 @@ type QueueStore = {
   setThemeMode: (mode: ThemeMode) => void
   setFloatingVisibleNextCount: (count: number) => void
   purgeCompleted: () => void
+  deleteAllTasks: () => void
   undoLastAction: () => void
   getPersistedState: () => PersistedState
 }
@@ -526,6 +527,12 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
         state.groups,
       )
       return withHistory(state, nextTasks, state.groups)
+    })
+  },
+
+  deleteAllTasks: () => {
+    set((state) => {
+      return withHistory(state, [], [])
     })
   },
 

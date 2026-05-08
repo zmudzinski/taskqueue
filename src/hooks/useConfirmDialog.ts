@@ -7,6 +7,7 @@ type UseConfirmDialogResult = {
   requestDeleteTask: (taskId: string, onDelete: (taskId: string) => void) => void
   requestDeleteGroup: (groupId: string, groupName: string, onDelete: (groupId: string) => void) => void
   requestPurgeCompleted: (onPurge: () => void) => void
+  requestDeleteAll: (onDelete: () => void) => void
 }
 
 export function useConfirmDialog(): UseConfirmDialogResult {
@@ -42,11 +43,22 @@ export function useConfirmDialog(): UseConfirmDialogResult {
     })
   }
 
+  const requestDeleteAll = (onDelete: () => void) => {
+    setConfirmRequest({
+      title: 'Delete all tasks',
+      message: 'Delete all tasks and groups? This cannot be undone.',
+      confirmLabel: 'Delete all',
+      destructive: true,
+      onConfirm: onDelete,
+    })
+  }
+
   return {
     confirmRequest,
     setConfirmRequest,
     requestDeleteTask,
     requestDeleteGroup,
     requestPurgeCompleted,
+    requestDeleteAll,
   }
 }

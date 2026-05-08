@@ -1,4 +1,5 @@
 import type { RefObject } from 'react'
+import { Loader2 } from 'lucide-react'
 import { Card } from './ui/Card'
 import { Separator } from './ui/Separator'
 import { Switch } from './ui/Switch'
@@ -22,6 +23,12 @@ type SettingsMenuProps = {
   onThemeModeChange: (mode: ThemeMode) => void
   onFloatingVisibleNextCountChange: (count: number) => void
   onDeleteCompleted: () => void
+  onDeleteAll: () => void
+  updateVersion: string | null
+  isChecking: boolean
+  upToDate: boolean
+  onCheckForUpdates: () => Promise<void>
+  onInstallUpdate: () => Promise<void>
 }
 
 export function SettingsMenu({
@@ -41,6 +48,12 @@ export function SettingsMenu({
   onThemeModeChange,
   onFloatingVisibleNextCountChange,
   onDeleteCompleted,
+  onDeleteAll,
+  updateVersion,
+  isChecking,
+  upToDate,
+  onCheckForUpdates,
+  onInstallUpdate,
 }: SettingsMenuProps) {
   if (!isOpen) {
     return null
@@ -107,13 +120,37 @@ export function SettingsMenu({
         Delete completed tasks
       </Button>
 
+      <Button variant="destructive" size="sm" className="settings-delete-all-btn" onClick={onDeleteAll}>
+        Delete all
+      </Button>
+
       <Separator />
       <div className="settings-help">
         <p>Cmd/Ctrl + Z restores last queue edit</p>
       </div>
 
       <Separator />
-      <p className="settings-version">Version {appVersion}</p>
+      <div className="settings-version-row">
+        <div className="settings-update-inline">
+          {updateVersion ? (
+            <button className="settings-update-link settings-update-link--new" onClick={onInstallUpdate}>
+              Get v{updateVersion} →
+            </button>
+          ) : isChecking ? (
+            <span className="settings-update-checking">
+              <Loader2 className="settings-spinner" size={11} />
+              Checking…
+            </span>
+          ) : upToDate ? (
+            <span className="settings-update-ok">You're up to date</span>
+          ) : (
+            <button className="settings-update-link" onClick={onCheckForUpdates}>
+              Check for updates
+            </button>
+          )}
+        </div>
+        <p className="settings-version">Version {appVersion}</p>
+      </div>
     </Card>
   )
 }
