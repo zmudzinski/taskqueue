@@ -87,6 +87,7 @@ function App() {
     setThemeMode,
     setFloatingVisibleNextCount,
     purgeCompleted,
+    deleteAllTasks,
     undoLastAction,
     getPersistedState,
   } = useTaskQueueStore()
@@ -101,12 +102,12 @@ function App() {
   const settingsMenuRef = useRef<HTMLElement | null>(null)
   const queueScrollRef = useRef<HTMLDivElement | null>(null)
 
-  const { updateVersion, dismissUpdate, handleInstallUpdate } = useUpdater()
+  const { updateVersion, isChecking, upToDate, checkForUpdates, handleInstallUpdate } = useUpdater()
 
-  const { confirmRequest, setConfirmRequest, requestDeleteTask, requestDeleteGroup, requestPurgeCompleted } =
+  const { confirmRequest, setConfirmRequest, requestDeleteTask, requestDeleteGroup, requestPurgeCompleted, requestDeleteAll } =
     useConfirmDialog()
 
-  useCloseRequest({ setConfirmRequest })
+  const { closeApp } = useCloseRequest({ setConfirmRequest })
 
   const {
     sortedTasks,
@@ -432,17 +433,6 @@ function App() {
 
   return (
     <main className={`app-shell ${settings.mode}`} onKeyDown={onTopBarKeyDown}>
-      {updateVersion && (
-        <div className="update-banner">
-          <span>v{updateVersion} available</span>
-          <button className="update-banner-install" onClick={handleInstallUpdate}>
-            Install &amp; Restart
-          </button>
-          <button className="update-banner-dismiss" onClick={dismissUpdate}>
-            Later
-          </button>
-        </div>
-      )}
 
       {settings.mode === 'full' ? (
         <>
@@ -463,8 +453,12 @@ function App() {
               })
             }}
             onClose={() => {
-              closeWindow().catch((error) => {
-                console.error('Could not close window', error)
+              setConfirmRequest({
+                title: 'Close app',
+                message: 'Are you sure you want to close TaskQueue?',
+                confirmLabel: 'Close',
+                destructive: true,
+                onConfirm: closeApp,
               })
             }}
             onSnap={() => {
@@ -491,6 +485,12 @@ function App() {
             onThemeModeChange={setThemeMode}
             onFloatingVisibleNextCountChange={setFloatingVisibleNextCount}
             onDeleteCompleted={() => requestPurgeCompleted(purgeCompleted)}
+            onDeleteAll={() => requestDeleteAll(deleteAllTasks)}
+            updateVersion={updateVersion}
+            isChecking={isChecking}
+            upToDate={upToDate}
+            onCheckForUpdates={checkForUpdates}
+            onInstallUpdate={handleInstallUpdate}
           />
         </>
       ) : null}
