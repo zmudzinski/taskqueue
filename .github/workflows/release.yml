@@ -44,8 +44,20 @@ jobs:
     runs-on: macos-latest
     permissions:
       contents: write   # needed to create GitHub Releases
+    outputs:
+      is_prerelease: ${{ steps.is-prerelease.outputs.result }}
 
     steps:
+      # ── detect prerelease ─────────────────────────────────────────────────
+      - name: Check if prerelease
+        id: is-prerelease
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [[ "$TAG" =~ -alpha|-beta|-rc ]]; then
+            echo "result=true" >> $GITHUB_OUTPUT
+          else
+            echo "result=false" >> $GITHUB_OUTPUT
+          fi
       # ── source ────────────────────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v5
@@ -97,7 +109,5 @@ jobs:
             ### Updates
             If you already have a previous version installed, the app will notify you automatically.
           releaseDraft: false
-          # Keep this false so /releases/latest/download/latest.json always points to the newest release.
-          # GitHub's "latest" endpoint ignores prereleases.
-          prerelease: false
+          prerelease: ${{ steps.is-prerelease.outputs.result }}
           args: --target universal-apple-darwin
