@@ -17,7 +17,6 @@ import { loadState } from './lib/persistence'
 import {
   applyWindowSize,
   dockWindowToCorner,
-  closeWindow,
   minimizeWindow,
   snapWindowToCorner,
   startWindowDragging,
