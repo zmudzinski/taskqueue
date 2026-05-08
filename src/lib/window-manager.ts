@@ -67,8 +67,9 @@ export async function startWindowDragging(): Promise<void> {
 
 export async function observeWindowResize(onResize: (width: number, height: number) => void): Promise<UnlistenFn> {
   const appWindow = getCurrentWindow()
-  return appWindow.onResized(({ payload }) => {
-    onResize(payload.width, payload.height)
+  return appWindow.onResized(async ({ payload }) => {
+    const scale = await appWindow.scaleFactor()
+    onResize(Math.round(payload.width / scale), Math.round(payload.height / scale))
   })
 }
 
