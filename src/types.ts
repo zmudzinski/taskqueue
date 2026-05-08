@@ -16,6 +16,7 @@ export type Group = {
 
 export type ViewMode = 'floating' | 'full'
 export type ThemeMode = 'light' | 'dark' | 'system'
+export type EdgeDockSide = 'left' | 'right'
 
 export type AppSettings = {
   opacity: number
@@ -26,6 +27,8 @@ export type AppSettings = {
   floatingVisibleNextCount: number
   stickyMode: boolean
   mode: ViewMode
+  edgeDockEnabled: boolean
+  edgeDockSide: EdgeDockSide
   hideCompleted: boolean
   soundsEnabled: boolean
   themeMode: ThemeMode

@@ -4,7 +4,7 @@ import { Card } from './ui/Card'
 import { Separator } from './ui/Separator'
 import { Switch } from './ui/Switch'
 import { Button } from './ui/Button'
-import type { ThemeMode } from '../types'
+import type { EdgeDockSide, ThemeMode } from '../types'
 
 type SettingsMenuProps = {
   isOpen: boolean
@@ -12,12 +12,16 @@ type SettingsMenuProps = {
   appVersion: string
   opacity: number
   stickyMode: boolean
+  edgeDockEnabled: boolean
+  edgeDockSide: EdgeDockSide
   hideCompleted: boolean
   soundsEnabled: boolean
   themeMode: ThemeMode
   floatingVisibleNextCount: number
   onOpacityChange: (opacity: number) => void
   onStickyChange: (sticky: boolean) => void
+  onEdgeDockEnabledChange: (enabled: boolean) => void
+  onEdgeDockSideChange: (side: EdgeDockSide) => void
   onHideCompletedChange: (hide: boolean) => void
   onSoundsEnabledChange: (enabled: boolean) => void
   onThemeModeChange: (mode: ThemeMode) => void
@@ -37,12 +41,16 @@ export function SettingsMenu({
   appVersion,
   opacity,
   stickyMode,
+  edgeDockEnabled,
+  edgeDockSide,
   hideCompleted,
   soundsEnabled,
   themeMode,
   floatingVisibleNextCount,
   onOpacityChange,
   onStickyChange,
+  onEdgeDockEnabledChange,
+  onEdgeDockSideChange,
   onHideCompletedChange,
   onSoundsEnabledChange,
   onThemeModeChange,
@@ -78,6 +86,26 @@ export function SettingsMenu({
         <span>Keep always on top</span>
         <Switch checked={stickyMode} onCheckedChange={onStickyChange} ariaLabel="Keep always on top" />
       </div>
+
+      <div className="settings-switch-row">
+        <span>Dock to screen edge</span>
+        <Switch checked={edgeDockEnabled} onCheckedChange={onEdgeDockEnabledChange} ariaLabel="Dock to screen edge" />
+      </div>
+
+      {edgeDockEnabled ? (
+        <div className="settings-switch-row">
+          <span>Dock side</span>
+          <select
+            className="settings-select"
+            value={edgeDockSide}
+            onChange={(event) => onEdgeDockSideChange(event.target.value as EdgeDockSide)}
+            aria-label="Dock side"
+          >
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+          </select>
+        </div>
+      ) : null}
 
       <div className="settings-switch-row">
         <span>Hide completed tasks</span>

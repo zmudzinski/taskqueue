@@ -943,6 +943,63 @@
   padding: 0;
 }
 
+.floating-edge-dock-layer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.floating-edge-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 26px;
+  border: 0;
+  border-radius: 0;
+  padding: 4px 2px;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--color-text) 86%, transparent);
+  background: color-mix(in srgb, rgba(255, 255, 255, 0.66) 85%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  cursor: e-resize;
+  z-index: 50;
+  opacity: 0.95;
+  transition: background 160ms ease, opacity 160ms ease;
+}
+
+.floating-edge-handle:hover,
+.floating-edge-handle:focus-visible {
+  background: color-mix(in srgb, rgba(255, 255, 255, 0.84) 90%, transparent);
+  opacity: 1;
+  outline: none;
+}
+
+.floating-edge-handle.edge-handle-left {
+  left: 0;
+  cursor: w-resize;
+}
+
+.floating-edge-handle.edge-handle-right {
+  right: 0;
+  cursor: e-resize;
+}
+
+.floating-edge-dock-layer.is-hidden .floating-mode {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.floating-edge-dock-layer.is-visible .floating-mode {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .floating-player {
   width: 100%;
   max-width: none;
@@ -1275,6 +1332,16 @@
 
 :root[data-theme='dark'] .floating-player {
   background: transparent;
+}
+
+:root[data-theme='dark'] .floating-edge-handle {
+  color: #e2e8f0;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+:root[data-theme='dark'] .floating-edge-handle:hover,
+:root[data-theme='dark'] .floating-edge-handle:focus-visible {
+  background: rgba(15, 23, 42, 0.88);
 }
 
 :root[data-floating-contrast='light'] .app-shell.floating {

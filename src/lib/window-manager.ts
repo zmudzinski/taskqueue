@@ -8,7 +8,14 @@ import type { UnlistenFn } from '@tauri-apps/api/event'
 
 const SNAP_THRESHOLD = 52
 const SNAP_PADDING = 12
+const EDGE_DOCK_PEEK = 26
 export type WindowCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+export type WindowEdge = 'left' | 'right'
+
+type EdgeDockOptions = {
+  animate?: boolean
+  durationMs?: number
+}
 
 function computeCornerPosition(
   corner: WindowCorner,
@@ -37,6 +44,16 @@ export async function applyWindowSize(width: number, height: number): Promise<vo
   await appWindow.setSize(new LogicalSize(width, height))
 }
 
+export async function applyWindowPosition(x: number, y: number): Promise<void> {
+  const appWindow = getCurrentWindow()
+  await appWindow.setPosition(new PhysicalPosition(x, y))
+}
+
+export async function getWindowPosition(): Promise<{ x: number; y: number }> {
+  const position = await getCurrentWindow().outerPosition()
+  return { x: position.x, y: position.y }
+}
+
 export async function applyStickyMode(sticky: boolean): Promise<void> {
   const appWindow = getCurrentWindow()
   await appWindow.setAlwaysOnTop(sticky)
@@ -62,7 +79,44 @@ export async function closeWindow(): Promise<void> {
 }
 
 export async function startWindowDragging(): Promise<void> {
-  await getCurrentWindow().startDragging()
+  const appWindow = getCurrentWindow()
+  await appWindow.setFocus()
+  await appWindow.startDragging()
+}
+
+export async function focusWindow(): Promise<void> {
+  await getCurrentWindow().setFocus()
+}
+
+async function animateWindowToX(
+  appWindow: ReturnType<typeof getCurrentWindow>,
+  fromX: number,
+  toX: number,
+  y: number,
+  durationMs: number,
+): Promise<void> {
+  if (fromX === toX || durationMs <= 0) {
+    await appWindow.setPosition(new PhysicalPosition(toX, y))
+    return
+  }
+
+  const start = performance.now()
+  while (true) {
+    const elapsed = performance.now() - start
+    const progress = Math.min(1, elapsed / durationMs)
+    const eased = 1 - Math.pow(1 - progress, 3)
+    const nextX = Math.round(fromX + (toX - fromX) * eased)
+
+    await appWindow.setPosition(new PhysicalPosition(nextX, y))
+
+    if (progress >= 1) {
+      break
+    }
+
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => resolve())
+    })
+  }
 }
 
 export async function observeWindowResize(onResize: (width: number, height: number) => void): Promise<UnlistenFn> {
@@ -123,4 +177,43 @@ export async function dockWindowToCorner(corner: WindowCorner): Promise<void> {
   const windowSize = await appWindow.outerSize()
   const position = computeCornerPosition(corner, monitor, windowSize)
   await appWindow.setPosition(new PhysicalPosition(position.x, position.y))
+}
+
+export async function dockWindowToEdge(edge: WindowEdge, hidden = false, options?: EdgeDockOptions): Promise<void> {
+  const appWindow = getCurrentWindow()
+  const monitor = await currentMonitor()
+  if (!monitor) {
+    return
+  }
+
+  const windowSize = await appWindow.outerSize()
+  const windowPosition = await appWindow.outerPosition()
+
+  const minY = monitor.workArea.position.y + SNAP_PADDING
+  const maxY = monitor.workArea.position.y + monitor.workArea.size.height - windowSize.height - SNAP_PADDING
+  const nextY = Math.max(minY, Math.min(maxY, windowPosition.y))
+
+  // Keep revealed dock window flush with the monitor edge to avoid hover flicker.
+  const visibleLeftX = monitor.workArea.position.x
+  const visibleRightX = monitor.workArea.position.x + monitor.workArea.size.width - windowSize.width
+  const hiddenLeftX = monitor.workArea.position.x - windowSize.width + EDGE_DOCK_PEEK
+  const hiddenRightX = monitor.workArea.position.x + monitor.workArea.size.width - EDGE_DOCK_PEEK
+
+  const nextX =
+    edge === 'left'
+      ? hidden
+        ? hiddenLeftX
+        : visibleLeftX
+      : hidden
+        ? hiddenRightX
+        : visibleRightX
+
+  const shouldAnimate = options?.animate ?? false
+  if (!shouldAnimate) {
+    await appWindow.setPosition(new PhysicalPosition(nextX, nextY))
+    return
+  }
+
+  const durationMs = options?.durationMs ?? 220
+  await animateWindowToX(appWindow, windowPosition.x, nextX, nextY, durationMs)
 }

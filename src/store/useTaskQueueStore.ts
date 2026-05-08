@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AppSettings, Group, PersistedState, Task, ThemeMode, ViewMode } from '../types'
+import type { AppSettings, EdgeDockSide, Group, PersistedState, Task, ThemeMode, ViewMode } from '../types'
 
 const defaultSettings: AppSettings = {
   opacity: 0.78,
@@ -10,6 +10,8 @@ const defaultSettings: AppSettings = {
   floatingVisibleNextCount: 3,
   stickyMode: true,
   mode: 'floating',
+  edgeDockEnabled: false,
+  edgeDockSide: 'right',
   hideCompleted: false,
   soundsEnabled: true,
   themeMode: 'system',
@@ -51,6 +53,8 @@ type QueueStore = {
   setWindowSize: (width: number, height: number) => void
   setFloatingWindowSize: (width: number, height: number) => void
   setStickyMode: (sticky: boolean) => void
+  setEdgeDockEnabled: (enabled: boolean) => void
+  setEdgeDockSide: (side: EdgeDockSide) => void
   setHideCompleted: (hide: boolean) => void
   setSoundsEnabled: (enabled: boolean) => void
   setThemeMode: (mode: ThemeMode) => void
@@ -480,6 +484,24 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
       settings: {
         ...state.settings,
         stickyMode,
+      },
+    }))
+  },
+
+  setEdgeDockEnabled: (edgeDockEnabled) => {
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        edgeDockEnabled,
+      },
+    }))
+  },
+
+  setEdgeDockSide: (edgeDockSide) => {
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        edgeDockSide,
       },
     }))
   },

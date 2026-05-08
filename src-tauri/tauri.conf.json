@@ -23,6 +23,7 @@
         "fullscreen": false,
         "alwaysOnTop": true,
         "transparent": true,
+        "acceptFirstMouse": true,
         "backgroundColor": "#00000000",
         "windowEffects": {
           "effects": [

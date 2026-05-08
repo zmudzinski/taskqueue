@@ -17,7 +17,9 @@ import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrate
 import { loadState } from './lib/persistence'
 import {
   applyWindowSize,
+  dockWindowToEdge,
   dockWindowToCorner,
+  focusWindow,
   minimizeWindow,
   snapWindowToCorner,
   startWindowDragging,
@@ -82,6 +84,8 @@ function App() {
     setWindowSize,
     setFloatingWindowSize,
     setStickyMode,
+    setEdgeDockEnabled,
+    setEdgeDockSide,
     setHideCompleted,
     setSoundsEnabled,
     setThemeMode,
@@ -105,6 +109,7 @@ function App() {
 
   const settingsMenuRef = useRef<HTMLElement | null>(null)
   const queueScrollRef = useRef<HTMLDivElement | null>(null)
+  const edgeDockHideTimerRef = useRef<number | null>(null)
 
   const { updateVersion, isChecking, upToDate, checkForUpdates, handleInstallUpdate } = useUpdater()
 
@@ -372,6 +377,21 @@ function App() {
 
   const prevFloatingQueueExpandedRef = useRef(false)
 
+  const clearEdgeDockHideTimer = () => {
+    if (edgeDockHideTimerRef.current) {
+      window.clearTimeout(edgeDockHideTimerRef.current)
+      edgeDockHideTimerRef.current = null
+    }
+  }
+
+  const [edgeDockHidden, setEdgeDockHidden] = useState(false)
+  const edgeDockHiddenRef = useRef(false)
+  const previousEdgeDockEnabledRef = useRef(false)
+
+  useEffect(() => {
+    edgeDockHiddenRef.current = edgeDockHidden
+  }, [edgeDockHidden])
+
   useEffect(() => {
     if (settings.mode !== 'floating') {
       if (floatingQueueExpanded) {
@@ -422,6 +442,77 @@ function App() {
     floatingQueueExpanded,
     setFloatingWindowSize,
   ])
+
+  useEffect(() => {
+    return () => {
+      clearEdgeDockHideTimer()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!loaded) {
+      return
+    }
+
+    const canUseEdgeDock = settings.mode === 'floating' && settings.edgeDockEnabled
+    const wasEdgeDockEnabled = previousEdgeDockEnabledRef.current
+    previousEdgeDockEnabledRef.current = canUseEdgeDock
+
+    if (!canUseEdgeDock) {
+      clearEdgeDockHideTimer()
+      if (edgeDockHiddenRef.current) {
+        dockWindowToEdge(settings.edgeDockSide, false, { animate: true, durationMs: 220 }).catch((error) => {
+          console.error('Could not reveal docked window', error)
+        })
+        setEdgeDockHidden(false)
+      }
+      return
+    }
+
+    if (!wasEdgeDockEnabled) {
+      dockWindowToEdge(settings.edgeDockSide, true, { animate: true, durationMs: 220 }).catch((error) => {
+        console.error('Could not hide docked window', error)
+      })
+      setEdgeDockHidden(true)
+      return
+    }
+
+    dockWindowToEdge(settings.edgeDockSide, edgeDockHiddenRef.current, { animate: true, durationMs: 220 }).catch((error) => {
+      console.error('Could not update edge dock position', error)
+    })
+  }, [loaded, settings.mode, settings.edgeDockEnabled, settings.edgeDockSide])
+
+  const onFloatingMouseEnter = () => {
+    clearEdgeDockHideTimer()
+    if (settings.mode !== 'floating' || !settings.edgeDockEnabled || !edgeDockHidden) {
+      return
+    }
+
+    dockWindowToEdge(settings.edgeDockSide, false, { animate: true, durationMs: 220 }).catch((error) => {
+      console.error('Could not reveal edge-docked window', error)
+    })
+    focusWindow().catch((error) => {
+      console.error('Could not focus edge-docked window', error)
+    })
+    edgeDockHiddenRef.current = false
+    setEdgeDockHidden(false)
+  }
+
+  const onFloatingMouseLeave = () => {
+    if (settings.mode !== 'floating' || !settings.edgeDockEnabled || edgeDockHidden) {
+      return
+    }
+
+    clearEdgeDockHideTimer()
+    edgeDockHideTimerRef.current = window.setTimeout(() => {
+      dockWindowToEdge(settings.edgeDockSide, true, { animate: true, durationMs: 220 }).catch((error) => {
+        console.error('Could not hide edge-docked window', error)
+      })
+      edgeDockHiddenRef.current = true
+      setEdgeDockHidden(true)
+      edgeDockHideTimerRef.current = null
+    }, 220)
+  }
 
   const activeGroup = useMemo(
     () => (activeGroupId ? groups.find((group) => group.id === activeGroupId) ?? null : null),
@@ -510,12 +601,16 @@ function App() {
             appVersion={appVersion}
             opacity={settings.opacity}
             stickyMode={settings.stickyMode}
+            edgeDockEnabled={settings.edgeDockEnabled}
+            edgeDockSide={settings.edgeDockSide}
             hideCompleted={settings.hideCompleted}
             soundsEnabled={settings.soundsEnabled}
             themeMode={settings.themeMode}
             floatingVisibleNextCount={settings.floatingVisibleNextCount}
             onOpacityChange={setOpacity}
             onStickyChange={setStickyMode}
+            onEdgeDockEnabledChange={setEdgeDockEnabled}
+            onEdgeDockSideChange={setEdgeDockSide}
             onHideCompletedChange={setHideCompleted}
             onSoundsEnabledChange={setSoundsEnabled}
             onThemeModeChange={setThemeMode}
@@ -532,35 +627,53 @@ function App() {
       ) : null}
 
       {settings.mode === 'floating' ? (
-        <FloatingModePanel
-          tasks={floatingTasks}
-          totalTasks={floatingProgress.total}
-          completedTasks={floatingProgress.completed}
-          groupNames={groupNameMap}
-          taskMap={taskMap}
-          completingTaskIds={completingTaskIds}
-          onToggleTask={onToggleTaskAnimated}
-          onPromoteTask={setFloatingPromotedTaskId}
-          visibleNextCount={settings.floatingVisibleNextCount}
-          isQueueExpanded={floatingQueueExpanded}
-          onSwitchToFull={() => setMode('full')}
-          onToggleQueueExpanded={onToggleFloatingQueueExpanded}
-          onStartDrag={() => {
-            startWindowDragging().catch((error) => {
-              console.error('Floating drag start failed', error)
-            })
-          }}
-          onSnap={() => {
-            snapWindowToCorner().catch((error) => {
-              console.error('Floating snap failed', error)
-            })
-          }}
-          onDockCorner={(corner) => {
-            dockWindowToCorner(corner).catch((error) => {
-              console.error('Dock failed', error)
-            })
-          }}
-        />
+        <div
+          className={`floating-edge-dock-layer edge-dock-${settings.edgeDockSide} ${edgeDockHidden ? 'is-hidden' : 'is-visible'}`}
+          onMouseEnter={onFloatingMouseEnter}
+          onMouseLeave={onFloatingMouseLeave}
+        >
+          {settings.edgeDockEnabled && edgeDockHidden ? (
+            <button
+              type="button"
+              className={`floating-edge-handle edge-handle-${settings.edgeDockSide === 'left' ? 'right' : 'left'}`}
+              aria-label="Reveal TaskQueue"
+              title="Reveal TaskQueue"
+              onMouseEnter={onFloatingMouseEnter}
+              onFocus={onFloatingMouseEnter}
+            >
+              TASKQUEUE
+            </button>
+          ) : null}
+          <FloatingModePanel
+            tasks={floatingTasks}
+            totalTasks={floatingProgress.total}
+            completedTasks={floatingProgress.completed}
+            groupNames={groupNameMap}
+            taskMap={taskMap}
+            completingTaskIds={completingTaskIds}
+            onToggleTask={onToggleTaskAnimated}
+            onPromoteTask={setFloatingPromotedTaskId}
+            visibleNextCount={settings.floatingVisibleNextCount}
+            isQueueExpanded={floatingQueueExpanded}
+            onSwitchToFull={() => setMode('full')}
+            onToggleQueueExpanded={onToggleFloatingQueueExpanded}
+            onStartDrag={() => {
+              startWindowDragging().catch((error) => {
+                console.error('Floating drag start failed', error)
+              })
+            }}
+            onSnap={() => {
+              snapWindowToCorner().catch((error) => {
+                console.error('Floating snap failed', error)
+              })
+            }}
+            onDockCorner={(corner) => {
+              dockWindowToCorner(corner).catch((error) => {
+                console.error('Dock failed', error)
+              })
+            }}
+          />
+        </div>
       ) : (
         <DndContext
           sensors={sensors}
