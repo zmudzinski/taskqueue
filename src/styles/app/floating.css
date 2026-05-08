@@ -1,0 +1,316 @@
+.floating-mode {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 0;
+}
+
+.floating-edge-dock-layer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.floating-edge-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 26px;
+  border: 0;
+  border-radius: 0;
+  padding: 4px 2px;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--color-text) 86%, transparent);
+  background: color-mix(in srgb, rgba(255, 255, 255, 0.66) 85%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  cursor: e-resize;
+  z-index: 50;
+  opacity: 0.95;
+  transition: background 160ms ease, opacity 160ms ease;
+}
+
+.floating-edge-handle:hover,
+.floating-edge-handle:focus-visible {
+  background: color-mix(in srgb, rgba(255, 255, 255, 0.84) 90%, transparent);
+  opacity: 1;
+  outline: none;
+}
+
+.floating-edge-handle.edge-handle-left {
+  left: 0;
+  cursor: w-resize;
+}
+
+.floating-edge-handle.edge-handle-right {
+  right: 0;
+  cursor: e-resize;
+}
+
+.floating-edge-dock-layer.is-hidden .floating-mode {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.floating-edge-dock-layer.is-visible .floating-mode {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.floating-player {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.floating-player-header {
+  border-bottom-color: color-mix(in srgb, var(--color-border) 75%, transparent);
+}
+
+.floating-player-header:active {
+  cursor: grabbing;
+}
+
+.floating-header-actions {
+  gap: 6px;
+}
+
+.floating-progress-pill {
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 4px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 84%, transparent);
+  background: rgba(255, 255, 255, 0.64);
+}
+
+.floating-progress-ring {
+  width: 20px;
+  height: 20px;
+  transform: rotate(-90deg);
+}
+
+.floating-progress-track,
+.floating-progress-value {
+  fill: none;
+  stroke-width: 2px;
+}
+
+.floating-progress-track {
+  stroke: color-mix(in srgb, var(--color-border) 90%, transparent);
+}
+
+.floating-progress-value {
+  stroke: var(--color-accent);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 180ms ease;
+}
+
+.floating-progress-count {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--color-text);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.floating-dock-wrap {
+  position: relative;
+}
+
+.floating-dock-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 92px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.14);
+  padding: 4px;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.floating-dock-menu button {
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 7px;
+  font-size: 11px;
+}
+
+.floating-dock-menu button:hover {
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.floating-dock-nearest {
+  grid-column: 1 / -1;
+  min-height: 28px;
+  font-weight: 600;
+}
+
+.floating-main-task.is-completing,
+.floating-queue-item.is-completing {
+  animation: completePulse 220ms ease;
+}
+
+.floating-main-task {
+  /* height must match FLOATING_CURRENT_ROW_H in App.tsx */
+  height: 44px;
+  margin: 0;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.floating-current-row {
+  margin: 4px 12px 6px;
+}
+
+.floating-main-task-body {
+  min-width: 0;
+}
+
+.floating-main-task-line {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.3;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.floating-current-title {
+  font-weight: 600;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.floating-check {
+  margin-top: 0;
+}
+
+.floating-queue-items {
+  padding: 0;
+  overflow-y: auto;
+  max-height: var(--floating-next-max-height, 68px);
+  flex: 0 0 auto;
+}
+
+.floating-queue-items.is-expanded {
+  max-height: none;
+  flex: 1 1 auto;
+  padding-bottom: 8px;
+}
+
+.floating-next-label {
+  margin: 0;
+  padding: 0 12px 3px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 10px;
+}
+
+.floating-queue-item {
+  /* height must match FLOATING_QUEUE_ROW_H in App.tsx */
+  height: 34px;
+  margin-top: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 12px;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  transition: background 130ms ease;
+}
+
+.floating-queue-item:hover {
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.floating-queue-text {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.floating-task-text {
+  font-size: 15px;
+  line-height: 1.3;
+  color: var(--color-text);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.floating-promote-btn {
+  border: 0;
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--color-muted);
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-4px);
+  transition: opacity 130ms ease, transform 130ms ease, background 130ms ease, color 130ms ease;
+}
+
+.floating-promote-btn:hover {
+  background: rgba(15, 23, 42, 0.16);
+  color: #fff;
+}
+
+.floating-queue-item:hover .floating-promote-btn,
+.floating-promote-btn:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+/* .floating-queue-item + .floating-queue-item {
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+} */
+

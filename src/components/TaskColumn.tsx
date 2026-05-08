@@ -1,8 +1,12 @@
+import { useState } from 'react'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
+import { EllipsisVertical } from 'lucide-react'
 import type { Task } from '../types'
 import { TaskItem } from './TaskItem'
 import { UnifiedComposer } from './UnifiedComposer'
+import { Button } from './ui/Button'
+import { DropdownMenu } from './ui/DropdownMenu'
 
 type TaskColumnProps = {
   id: string
@@ -20,6 +24,9 @@ type TaskColumnProps = {
   onDelete: (taskId: string) => void
   onAddToBacklog: (taskId: string) => void
   onRemoveFromBacklog: (taskId: string) => void
+  onClearBacklog?: () => void
+  onClearCompletedBacklog?: () => void
+  onClearOpenBacklog?: () => void
   onCreateTask?: (value: string, groupId?: string) => void
   onCreateTasksFromPaste?: (value: string, groupId?: string) => void
 }
@@ -40,18 +47,52 @@ export function TaskColumn({
   onDelete,
   onAddToBacklog,
   onRemoveFromBacklog,
+  onClearBacklog,
+  onClearCompletedBacklog,
+  onClearOpenBacklog,
   onCreateTask,
   onCreateTasksFromPaste,
 }: TaskColumnProps) {
+  const [backlogMenuOpen, setBacklogMenuOpen] = useState(false)
   const { setNodeRef } = useDroppable({ id: `container-${id}` })
   const remainingCount = taskIds.length
+  const isBacklogColumn = id === 'ungrouped'
 
   return (
     <section ref={setNodeRef} className="task-column" data-container-id={`container-${id}`}>
       {title ? (
         <header className="task-column-title">
-          {title}
+          <span className="task-column-title-main">{title}</span>
           <span>{remainingCount}</span>
+          {isBacklogColumn && onClearBacklog && onClearCompletedBacklog && onClearOpenBacklog ? (
+            <DropdownMenu
+              open={backlogMenuOpen}
+              onOpenChange={setBacklogMenuOpen}
+              contentClassName="backlog-actions-menu"
+              trigger={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="task-column-menu-trigger"
+                  aria-label="Backlog options"
+                  onClick={() => setBacklogMenuOpen((open) => !open)}
+                >
+                  <EllipsisVertical size={14} />
+                </Button>
+              }
+            >
+              <button type="button" onClick={() => { onClearCompletedBacklog(); setBacklogMenuOpen(false) }}>
+                Clear completed
+              </button>
+              <button type="button" onClick={() => { onClearOpenBacklog(); setBacklogMenuOpen(false) }}>
+                Clear open
+              </button>
+              <button type="button" onClick={() => { onClearBacklog(); setBacklogMenuOpen(false) }}>
+                Clear backlog
+              </button>
+            </DropdownMenu>
+          ) : null}
         </header>
       ) : null}
 

@@ -48,14 +48,20 @@ export function useUpdater(): UseUpdaterResult {
     if (!('__TAURI_INTERNALS__' in window)) return
     setIsChecking(true)
     setUpToDate(false)
+    setUpdateVersion(null)
     try {
       const { invoke } = await import('@tauri-apps/api/core')
       const version = await invoke<string | null>('check_for_update')
+      if (version) {
+        // Fallback for cases where event delivery is delayed or missed.
+        setUpdateVersion(version)
+        return
+      }
+
       if (!version) {
         setUpToDate(true)
         setTimeout(() => setUpToDate(false), 4000)
       }
-      // if version found, update-available event fires and sets updateVersion
     } catch (error) {
       console.error('[Updater] Manual check failed:', error)
     } finally {

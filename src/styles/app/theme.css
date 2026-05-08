@@ -1,0 +1,102 @@
+@media (max-width: 760px) {
+  .task-item {
+    grid-template-columns: 14px 18px minmax(0, 1fr) auto;
+  }
+
+  .titlebar-left span {
+    display: none;
+  }
+}
+
+:root[data-theme='dark'] .ui-button,
+:root[data-theme='dark'] .ui-card,
+:root[data-theme='dark'] .task-column-shell,
+:root[data-theme='dark'] .settings-menu,
+:root[data-theme='dark'] .confirm-dialog-panel {
+  background: rgba(17, 24, 39, 0.92);
+}
+
+:root[data-theme='dark'] .floating-player {
+  background: transparent;
+}
+
+:root[data-theme='dark'] .floating-edge-handle {
+  color: #e2e8f0;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+:root[data-theme='dark'] .floating-edge-handle:hover,
+:root[data-theme='dark'] .floating-edge-handle:focus-visible {
+  background: rgba(15, 23, 42, 0.88);
+}
+
+:root[data-floating-contrast='light'] .app-shell.floating {
+  color: #eff6ff;
+}
+
+:root[data-floating-contrast='light'] .app-shell.floating .titlebar,
+:root[data-floating-contrast='light'] .app-shell.floating .floating-dock-menu,
+:root[data-floating-contrast='light'] .app-shell.floating .floating-dock-menu button,
+:root[data-floating-contrast='light'] .app-shell.floating .floating-task-text,
+:root[data-floating-contrast='light'] .app-shell.floating .task-origin-badge,
+:root[data-floating-contrast='light'] .app-shell.floating .floating-next-label,
+:root[data-floating-contrast='light'] .app-shell.floating .titlebar-left strong,
+:root[data-floating-contrast='light'] .app-shell.floating .titlebar-left span {
+  color: #eff6ff;
+}
+
+:root[data-floating-contrast='light'] .app-shell.floating .titlebar {
+  background: rgba(15, 23, 42, 0.28);
+}
+
+:root[data-floating-contrast='light'] .app-shell.floating .task-origin-badge {
+  border-color: rgba(226, 232, 240, 0.34);
+  background: rgba(15, 23, 42, 0.2);
+}
+
+:root[data-theme='dark'] .titlebar {
+  background: rgba(15, 23, 42, 0.7);
+}
+
+:root[data-theme='dark'] .task-item:hover,
+:root[data-theme='dark'] .group-header .ui-button:hover {
+  background: rgba(148, 163, 184, 0.12);
+}
+
+:root[data-theme='dark'] .task-backlog-btn.is-add {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+:root[data-theme='dark'] .task-backlog-btn.is-remove {
+  background: #2f8a5f;
+  color: #e2e8f0;
+}
+
+:root[data-theme='dark'] .settings-trigger {
+  background: rgba(30, 41, 59, 0.86);
+  color: #e2e8f0;
+}
+
+:root[data-theme='dark'] .settings-trigger.active {
+  background: rgba(96, 165, 250, 0.2);
+  border-color: rgba(96, 165, 250, 0.38);
+  color: #93c5fd;
+}
+
+:root[data-theme='dark'] .settings-select,
+:root[data-theme='dark'] .floating-dock-menu {
+  background: rgba(17, 24, 39, 0.96);
+}
+
+:root[data-theme='dark'] .ui-dropdown-content.backlog-actions-menu {
+  background: rgba(17, 24, 39, 0.96);
+}
+
+:root[data-theme='dark'] .drag-preview {
+  background: rgba(15, 23, 42, 0.96);
+}
+
+:root[data-theme='dark'] .group-drag-preview {
+  background: rgba(15, 23, 42, 0.96);
+}

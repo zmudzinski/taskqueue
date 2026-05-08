@@ -2,8 +2,6 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboa
 import {
   closestCorners,
   KeyboardSensor,
-  DndContext,
-  DragOverlay,
   PointerSensor,
   pointerWithin,
   useSensor,
@@ -13,7 +11,7 @@ import {
   type DragOverEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
-import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { loadState } from './lib/persistence'
 import {
   applyWindowSize,
@@ -35,21 +33,17 @@ import { useTaskCompletion } from './hooks/useTaskCompletion'
 import { useUpdater } from './hooks/useUpdater'
 import { useWindowSync } from './hooks/useWindowSync'
 import { useTaskQueueStore } from './store/useTaskQueueStore'
-import { DragPreview } from './components/DragPreview'
-import { FloatingModePanel } from './components/FloatingModePanel'
-import { AddGroupComposer } from './components/AddGroupComposer'
-import { SettingsMenu } from './components/SettingsMenu'
-import { SortableGroupSection } from './components/SortableGroupSection'
-import { TaskColumn } from './components/TaskColumn'
-import { TitleBar } from './components/TitleBar'
+import { FloatingDockLayer } from './components/FloatingDockLayer'
+import { FullModeControls } from './components/FullModeControls'
+import { TaskBoard } from './components/TaskBoard'
 import { ConfirmDialog } from './components/ui/ConfirmDialog'
 import './App.css'
 
 // These constants MUST match the CSS values in App.css
-const FLOATING_HEADER_H = 44         // .titlebar height
-const FLOATING_CURRENT_ROW_H = 44    // .floating-main-task height (border-bottom included)
-const FLOATING_QUEUE_CHROME_H = 0    // no extra chrome — border is inside current row
-const FLOATING_QUEUE_ROW_H = 34      // .floating-queue-item height
+const FLOATING_HEADER_H = 44 // .titlebar height
+const FLOATING_CURRENT_ROW_H = 44 // .floating-main-task height (border-bottom included)
+const FLOATING_QUEUE_CHROME_H = 0 // no extra chrome — border is inside current row
+const FLOATING_QUEUE_ROW_H = 34 // .floating-queue-item height
 
 function getCollapsedFloatingHeight(visibleNextCount: number): number {
   const rows = Math.max(2, Math.round(visibleNextCount))
@@ -90,6 +84,9 @@ function App() {
     setSoundsEnabled,
     setThemeMode,
     setFloatingVisibleNextCount,
+    clearBacklogMirrors,
+    clearCompletedBacklogMirrors,
+    clearOpenBacklogMirrors,
     purgeCompleted,
     deleteAllTasks,
     undoLastAction,
@@ -100,8 +97,8 @@ function App() {
   const [overTaskId, setOverTaskId] = useState<string | null>(null)
   const [overPosition, setOverPosition] = useState<'before' | 'after'>('after')
   const [settingsOpen, setSettingsOpen] = useState(false)
-    const overTaskIdRef = useRef<string | null>(null)
-    const overPositionRef = useRef<'before' | 'after'>('after')
+  const overTaskIdRef = useRef<string | null>(null)
+  const overPositionRef = useRef<'before' | 'after'>('after')
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
   const [floatingPromotedTaskId, setFloatingPromotedTaskId] = useState<string | null>(null)
   const [floatingQueueExpanded, setFloatingQueueExpanded] = useState(false)
@@ -198,9 +195,7 @@ function App() {
     const media = window.matchMedia('(prefers-color-scheme: dark)')
 
     const applyTheme = () => {
-      const resolved = settings.themeMode === 'system'
-        ? (media.matches ? 'dark' : 'light')
-        : settings.themeMode
+      const resolved = settings.themeMode === 'system' ? (media.matches ? 'dark' : 'light') : settings.themeMode
       document.documentElement.dataset.theme = resolved
     }
 
@@ -291,7 +286,7 @@ function App() {
   }
 
   const onDragEnd = (event: DragEndEvent) => {
-      overTaskIdRef.current = null
+    overTaskIdRef.current = null
     setOverTaskId(null)
     const activeId = String(event.active.id)
     const overId = event.over ? String(event.over.id) : null
@@ -339,10 +334,7 @@ function App() {
       if (sourceTask?.groupId && !targetTask.groupId) {
         return
       }
-      // Use the position tracked by onDragOver (same source as the blue-line indicator)
-      const targetPosition = overTaskIdRef.current === targetTaskId
-        ? overPositionRef.current
-        : 'after'
+      const targetPosition = overTaskIdRef.current === targetTaskId ? overPositionRef.current : 'after'
       reorderTask(taskId, targetContainer, targetTaskId, targetPosition)
       return
     }
@@ -413,9 +405,6 @@ function App() {
       return
     }
 
-    // Only snap to collapsed height when:
-    // 1. Queue was just collapsed (expanded → collapsed transition), or
-    // 2. The visible row count changed (need to recalculate height)
     const collapsedHeight = getCollapsedFloatingHeight(settings.floatingVisibleNextCount)
     const justCollapsed = wasExpanded && !floatingQueueExpanded
     const alreadyAtCollapsedHeight = Math.abs(settings.floatingWindowHeight - collapsedHeight) <= 1
@@ -425,7 +414,6 @@ function App() {
     }
 
     if (!justCollapsed && !wasExpanded) {
-      // User is manually resizing while collapsed — don't fight them
       return
     }
 
@@ -560,200 +548,126 @@ function App() {
 
   return (
     <main className={`app-shell ${settings.mode}`} onKeyDown={onTopBarKeyDown}>
-
       {settings.mode === 'full' ? (
-        <>
-          <TitleBar
-            mode={settings.mode}
-            settingsOpen={settingsOpen}
-            saveStatusLabel={lastSavedLabel}
-            onStartDrag={() => {
-              startWindowDragging().catch((error) => {
-                console.error('Drag start failed', error)
-              })
-            }}
-            onToggleMode={toggleMode}
-            onToggleSettings={() => setSettingsOpen((value) => !value)}
-            onMinimize={() => {
-              minimizeWindow().catch((error) => {
-                console.error('Could not minimize window', error)
-              })
-            }}
-            onClose={() => {
-              setConfirmRequest({
-                title: 'Close app',
-                message: 'Are you sure you want to close TaskQueue?',
-                confirmLabel: 'Close',
-                destructive: true,
-                onConfirm: closeApp,
-              })
-            }}
-            onSnap={() => {
-              snapWindowToCorner().catch((error) => {
-                console.error('Snap failed', error)
-              })
-            }}
-          />
-
-          <SettingsMenu
-            isOpen={settingsOpen}
-            menuRef={settingsMenuRef}
-            appVersion={appVersion}
-            opacity={settings.opacity}
-            stickyMode={settings.stickyMode}
-            edgeDockEnabled={settings.edgeDockEnabled}
-            edgeDockSide={settings.edgeDockSide}
-            hideCompleted={settings.hideCompleted}
-            soundsEnabled={settings.soundsEnabled}
-            themeMode={settings.themeMode}
-            floatingVisibleNextCount={settings.floatingVisibleNextCount}
-            onOpacityChange={setOpacity}
-            onStickyChange={setStickyMode}
-            onEdgeDockEnabledChange={setEdgeDockEnabled}
-            onEdgeDockSideChange={setEdgeDockSide}
-            onHideCompletedChange={setHideCompleted}
-            onSoundsEnabledChange={setSoundsEnabled}
-            onThemeModeChange={setThemeMode}
-            onFloatingVisibleNextCountChange={setFloatingVisibleNextCount}
-            onDeleteCompleted={() => requestPurgeCompleted(purgeCompleted)}
-            onDeleteAll={() => requestDeleteAll(deleteAllTasks)}
-            updateVersion={updateVersion}
-            isChecking={isChecking}
-            upToDate={upToDate}
-            onCheckForUpdates={checkForUpdates}
-            onInstallUpdate={handleInstallUpdate}
-          />
-        </>
+        <FullModeControls
+          appVersion={appVersion}
+          settings={settings}
+          settingsOpen={settingsOpen}
+          settingsMenuRef={settingsMenuRef}
+          lastSavedLabel={lastSavedLabel}
+          updateVersion={updateVersion}
+          isChecking={isChecking}
+          upToDate={upToDate}
+          onStartDrag={() => {
+            startWindowDragging().catch((error) => {
+              console.error('Drag start failed', error)
+            })
+          }}
+          onToggleMode={toggleMode}
+          onToggleSettings={() => setSettingsOpen((value) => !value)}
+          onMinimize={() => {
+            minimizeWindow().catch((error) => {
+              console.error('Could not minimize window', error)
+            })
+          }}
+          onClose={() => {
+            setConfirmRequest({
+              title: 'Close app',
+              message: 'Are you sure you want to close TaskQueue?',
+              confirmLabel: 'Close',
+              destructive: true,
+              onConfirm: closeApp,
+            })
+          }}
+          onSnap={() => {
+            snapWindowToCorner().catch((error) => {
+              console.error('Snap failed', error)
+            })
+          }}
+          onOpacityChange={setOpacity}
+          onStickyChange={setStickyMode}
+          onEdgeDockEnabledChange={setEdgeDockEnabled}
+          onEdgeDockSideChange={setEdgeDockSide}
+          onHideCompletedChange={setHideCompleted}
+          onSoundsEnabledChange={setSoundsEnabled}
+          onThemeModeChange={setThemeMode}
+          onFloatingVisibleNextCountChange={setFloatingVisibleNextCount}
+          onDeleteCompleted={() => requestPurgeCompleted(purgeCompleted)}
+          onDeleteAll={() => requestDeleteAll(deleteAllTasks)}
+          onCheckForUpdates={checkForUpdates}
+          onInstallUpdate={handleInstallUpdate}
+        />
       ) : null}
 
       {settings.mode === 'floating' ? (
-        <div
-          className={`floating-edge-dock-layer edge-dock-${settings.edgeDockSide} ${edgeDockHidden ? 'is-hidden' : 'is-visible'}`}
-          onMouseEnter={onFloatingMouseEnter}
-          onMouseLeave={onFloatingMouseLeave}
-        >
-          {settings.edgeDockEnabled && edgeDockHidden ? (
-            <button
-              type="button"
-              className={`floating-edge-handle edge-handle-${settings.edgeDockSide === 'left' ? 'right' : 'left'}`}
-              aria-label="Reveal TaskQueue"
-              title="Reveal TaskQueue"
-              onMouseEnter={onFloatingMouseEnter}
-              onFocus={onFloatingMouseEnter}
-            >
-              TASKQUEUE
-            </button>
-          ) : null}
-          <FloatingModePanel
-            tasks={floatingTasks}
-            totalTasks={floatingProgress.total}
-            completedTasks={floatingProgress.completed}
-            groupNames={groupNameMap}
-            taskMap={taskMap}
-            completingTaskIds={completingTaskIds}
-            onToggleTask={onToggleTaskAnimated}
-            onPromoteTask={setFloatingPromotedTaskId}
-            visibleNextCount={settings.floatingVisibleNextCount}
-            isQueueExpanded={floatingQueueExpanded}
-            onSwitchToFull={() => setMode('full')}
-            onToggleQueueExpanded={onToggleFloatingQueueExpanded}
-            onStartDrag={() => {
-              startWindowDragging().catch((error) => {
-                console.error('Floating drag start failed', error)
-              })
-            }}
-            onSnap={() => {
-              snapWindowToCorner().catch((error) => {
-                console.error('Floating snap failed', error)
-              })
-            }}
-            onDockCorner={(corner) => {
-              dockWindowToCorner(corner).catch((error) => {
-                console.error('Dock failed', error)
-              })
-            }}
-          />
-        </div>
+        <FloatingDockLayer
+          edgeDockSide={settings.edgeDockSide}
+          edgeDockEnabled={settings.edgeDockEnabled}
+          edgeDockHidden={edgeDockHidden}
+          floatingTasks={floatingTasks}
+          floatingProgress={floatingProgress}
+          groupNameMap={groupNameMap}
+          taskMap={taskMap}
+          completingTaskIds={completingTaskIds}
+          visibleNextCount={settings.floatingVisibleNextCount}
+          floatingQueueExpanded={floatingQueueExpanded}
+          onFloatingMouseEnter={onFloatingMouseEnter}
+          onFloatingMouseLeave={onFloatingMouseLeave}
+          onToggleTask={onToggleTaskAnimated}
+          onPromoteTask={setFloatingPromotedTaskId}
+          onSwitchToFull={() => setMode('full')}
+          onToggleQueueExpanded={onToggleFloatingQueueExpanded}
+          onStartDrag={() => {
+            startWindowDragging().catch((error) => {
+              console.error('Floating drag start failed', error)
+            })
+          }}
+          onSnap={() => {
+            snapWindowToCorner().catch((error) => {
+              console.error('Floating snap failed', error)
+            })
+          }}
+          onDockCorner={(corner) => {
+            dockWindowToCorner(corner).catch((error) => {
+              console.error('Dock failed', error)
+            })
+          }}
+        />
       ) : (
-        <DndContext
+        <TaskBoard
           sensors={sensors}
           collisionDetection={collisionDetection}
           onDragStart={onDragStart}
           onDragOver={onDragOver}
           onDragEnd={onDragEnd}
-        >
-          <section className="full-layout">
-            <div ref={queueScrollRef} className="queue-scroll">
-              <TaskColumn
-                id="ungrouped"
-                title="Backlog"
-                taskIds={ungroupedTaskIds}
-                taskMap={taskMap}
-                groupNameMap={groupNameMap}
-                backlogMirrorBySourceId={backlogMirrorBySourceId}
-                completingTaskIds={completingTaskIds}
-                overTaskId={overTaskId}
-                overPosition={overPosition}
-                onToggle={onToggleTaskAnimated}
-                onUpdate={updateTask}
-                onDelete={(taskId) => requestDeleteTask(taskId, removeTask)}
-                onAddToBacklog={onAddToBacklogWithSound}
-                onRemoveFromBacklog={onRemoveFromBacklogWithSound}
-              />
-
-              <SortableContext
-                id="group-order"
-                items={groups.map((group) => `group-${group.id}`)}
-                strategy={verticalListSortingStrategy}
-              >
-                {groups.map((group) => (
-                  <SortableGroupSection
-                    key={group.id}
-                    group={group}
-                    taskIds={groupTaskIds.get(group.id) ?? []}
-                    taskMap={taskMap}
-                    groupNameMap={groupNameMap}
-                    backlogMirrorBySourceId={backlogMirrorBySourceId}
-                    doneCount={groupProgress.get(group.id)?.done ?? 0}
-                    totalCount={groupProgress.get(group.id)?.total ?? 0}
-                    completingTaskIds={completingTaskIds}
-                    overTaskId={overTaskId}
-                    overPosition={overPosition}
-                    onToggleTask={onToggleTaskAnimated}
-                    onUpdateTask={updateTask}
-                    onDeleteTask={(taskId) => requestDeleteTask(taskId, removeTask)}
-                    onAddToBacklog={onAddToBacklogWithSound}
-                    onRemoveFromBacklog={onRemoveFromBacklogWithSound}
-                    onToggleGroupCollapsed={toggleGroupCollapsed}
-                    onRenameGroup={renameGroup}
-                    onDeleteGroup={(groupId) =>
-                      requestDeleteGroup(groupId, groupNameMap.get(groupId) ?? 'this group', removeGroup)
-                    }
-                    onCreateTaskInGroup={addTask}
-                    onCreateTasksFromPaste={addTasksFromPaste}
-                  />
-                ))}
-              </SortableContext>
-
-              <section className="task-column add-group-block">
-                <header className="task-column-title">Groups</header>
-                <div className="task-column-shell">
-                  <AddGroupComposer onCreateGroup={createGroup} />
-                </div>
-              </section>
-            </div>
-          </section>
-
-          <DragOverlay>
-            {activeTaskId ? <DragPreview task={taskMap.get(activeTaskId)} /> : null}
-            {!activeTaskId && activeGroup ? (
-              <div className="group-drag-preview">
-                <span className="group-drag-preview-name">{activeGroup.name}</span>
-                <span className="group-drag-preview-count">{groupTaskIds.get(activeGroup.id)?.length ?? 0}</span>
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+          queueScrollRef={queueScrollRef}
+          ungroupedTaskIds={ungroupedTaskIds}
+          taskMap={taskMap}
+          groupNameMap={groupNameMap}
+          backlogMirrorBySourceId={backlogMirrorBySourceId}
+          completingTaskIds={completingTaskIds}
+          overTaskId={overTaskId}
+          overPosition={overPosition}
+          groups={groups}
+          groupTaskIds={groupTaskIds}
+          groupProgress={groupProgress}
+          activeTaskId={activeTaskId}
+          activeGroup={activeGroup}
+          onToggleTask={onToggleTaskAnimated}
+          onUpdateTask={updateTask}
+          onDeleteTask={(taskId) => requestDeleteTask(taskId, removeTask)}
+          onAddToBacklog={onAddToBacklogWithSound}
+          onRemoveFromBacklog={onRemoveFromBacklogWithSound}
+          onClearBacklog={clearBacklogMirrors}
+          onClearCompletedBacklog={clearCompletedBacklogMirrors}
+          onClearOpenBacklog={clearOpenBacklogMirrors}
+          onToggleGroupCollapsed={toggleGroupCollapsed}
+          onRenameGroup={renameGroup}
+          onDeleteGroup={(groupId) => requestDeleteGroup(groupId, groupNameMap.get(groupId) ?? 'this group', removeGroup)}
+          onCreateTaskInGroup={addTask}
+          onCreateTasksFromPaste={addTasksFromPaste}
+          onCreateGroup={createGroup}
+        />
       )}
 
       <ConfirmDialog

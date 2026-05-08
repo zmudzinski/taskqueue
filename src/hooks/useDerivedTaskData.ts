@@ -67,7 +67,7 @@ export function useDerivedTaskData({
   const backlogMirrorBySourceId = useMemo(() => {
     const mapping = new Map<string, string>()
     for (const task of sortedTasks) {
-      if (!task.sourceTaskId || task.completed) {
+      if (!task.sourceTaskId) {
         continue
       }
       mapping.set(task.sourceTaskId, task.id)

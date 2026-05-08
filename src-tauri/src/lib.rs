@@ -4,11 +4,7 @@ use std::{
   sync::Mutex,
 };
 
-#[cfg(not(debug_assertions))]
 use tauri::{Emitter, Manager};
-#[cfg(debug_assertions)]
-use tauri::Manager;
-#[cfg(not(debug_assertions))]
 use tauri_plugin_updater::UpdaterExt;
 
 fn state_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -80,8 +76,7 @@ async fn install_update(
   Ok(())
 }
 
-/// Manual update check triggered from UI — release builds only.
-#[cfg(not(debug_assertions))]
+/// Manual update check triggered from UI.
 #[tauri::command]
 async fn check_for_update(
   app: tauri::AppHandle,
@@ -101,13 +96,6 @@ async fn check_for_update(
     Ok(None) => Ok(None),
     Err(e) => Err(e.to_string()),
   }
-}
-
-/// No-op stub for debug builds (updater plugin not wired in dev).
-#[cfg(debug_assertions)]
-#[tauri::command]
-async fn check_for_update() -> Result<Option<String>, String> {
-  Ok(None)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

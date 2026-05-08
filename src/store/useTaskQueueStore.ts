@@ -59,6 +59,9 @@ type QueueStore = {
   setSoundsEnabled: (enabled: boolean) => void
   setThemeMode: (mode: ThemeMode) => void
   setFloatingVisibleNextCount: (count: number) => void
+  clearBacklogMirrors: () => void
+  clearCompletedBacklogMirrors: () => void
+  clearOpenBacklogMirrors: () => void
   purgeCompleted: () => void
   deleteAllTasks: () => void
   undoLastAction: () => void
@@ -204,7 +207,7 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
       }
 
       const alreadyMirrored = state.tasks.some(
-        (task) => task.sourceTaskId === sourceTask.id && !task.completed,
+        (task) => task.sourceTaskId === sourceTask.id,
       )
 
       if (alreadyMirrored) {
@@ -230,25 +233,30 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
         return state
       }
 
-      // Completing a backlog mirror marks its source task done and removes the mirror.
-      if (toggledTask.sourceTaskId && !toggledTask.completed) {
+      const nextCompleted = !toggledTask.completed
+
+      // Toggling a backlog mirror also toggles its source task, but keeps the mirror in backlog.
+      if (toggledTask.sourceTaskId) {
         const nextTasks = normalizeTasks(
           state.tasks
-            .filter((task) => task.id !== id)
             .map((task) =>
-              task.id === toggledTask.sourceTaskId ? { ...task, completed: true } : task,
+              task.id === id || task.id === toggledTask.sourceTaskId
+                ? { ...task, completed: nextCompleted }
+                : task,
             ),
           state.groups,
         )
         return withHistory(state, nextTasks, state.groups)
       }
 
-      const nextCompleted = !toggledTask.completed
-
+      // Toggling a source task mirrors completion state to its backlog copy.
       const nextTasks = normalizeTasks(
         state.tasks
-          .filter((task) => !(nextCompleted && task.sourceTaskId === toggledTask.id))
-          .map((task) => (task.id === id ? { ...task, completed: nextCompleted } : task)),
+          .map((task) =>
+            task.id === id || task.sourceTaskId === toggledTask.id
+              ? { ...task, completed: nextCompleted }
+              : task,
+          ),
         state.groups,
       )
 
@@ -540,6 +548,36 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
         floatingVisibleNextCount: Math.max(2, Math.min(8, Math.round(floatingVisibleNextCount))),
       },
     }))
+  },
+
+  clearBacklogMirrors: () => {
+    set((state) => {
+      const nextTasks = normalizeTasks(
+        state.tasks.filter((task) => !task.sourceTaskId),
+        state.groups,
+      )
+      return withHistory(state, nextTasks, state.groups)
+    })
+  },
+
+  clearCompletedBacklogMirrors: () => {
+    set((state) => {
+      const nextTasks = normalizeTasks(
+        state.tasks.filter((task) => !(task.sourceTaskId && task.completed)),
+        state.groups,
+      )
+      return withHistory(state, nextTasks, state.groups)
+    })
+  },
+
+  clearOpenBacklogMirrors: () => {
+    set((state) => {
+      const nextTasks = normalizeTasks(
+        state.tasks.filter((task) => !(task.sourceTaskId && !task.completed)),
+        state.groups,
+      )
+      return withHistory(state, nextTasks, state.groups)
+    })
   },
 
   purgeCompleted: () => {
