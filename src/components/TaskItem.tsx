@@ -115,8 +115,8 @@ export function TaskItem({
           <button
             className={`task-action task-backlog-btn ${backlogActionMode === 'remove' ? 'is-remove' : 'is-add'}`}
             type="button"
-            aria-label={backlogActionMode === 'remove' ? 'Remove from backlog' : 'Add to backlog'}
-            data-tooltip={backlogActionMode === 'remove' ? 'Remove from backlog' : 'Add to backlog'}
+            aria-label={backlogActionMode === 'remove' ? 'Remove from sprint' : 'Add to sprint'}
+            data-tooltip={backlogActionMode === 'remove' ? 'Remove from sprint' : 'Add to sprint'}
             onClick={onBacklogAction}
           >
             {backlogActionMode === 'remove' ? '↓' : '↑'}

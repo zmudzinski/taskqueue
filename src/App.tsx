@@ -62,6 +62,8 @@ function App() {
     hydrate,
     addTask,
     addTasksFromPaste,
+    addTaskToSprint,
+    addTasksToSprintFromPaste,
     addTaskToBacklog,
     toggleTask,
     updateTask,
@@ -632,6 +634,9 @@ function App() {
               console.error('Dock failed', error)
             })
           }}
+          groups={groups}
+          onCreateTask={addTaskToSprint}
+          onCreateTasksFromPaste={addTasksToSprintFromPaste}
         />
       ) : (
         <TaskBoard

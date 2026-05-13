@@ -32,6 +32,8 @@ type QueueStore = {
   hydrate: (state: PersistedState) => void
   addTask: (content: string, groupId?: string) => void
   addTasksFromPaste: (raw: string, groupId?: string) => void
+  addTaskToSprint: (content: string, groupId?: string) => void
+  addTasksToSprintFromPaste: (raw: string, groupId?: string) => void
   addTaskToBacklog: (taskId: string) => void
   toggleTask: (id: string) => void
   updateTask: (id: string, content: string) => void
@@ -94,6 +96,28 @@ function createTask(content: string, index: number, groupId?: string, sourceTask
     order: index,
     createdAt: Date.now(),
   }
+}
+
+function createSprintEntries(lines: string[], fromOrder: number, groupId?: string): Task[] {
+  const entries: Task[] = []
+  let nextOrder = fromOrder
+
+  for (const line of lines) {
+    if (!groupId) {
+      entries.push(createTask(line, nextOrder))
+      nextOrder += 1
+      continue
+    }
+
+    const sourceTask = createTask(line, nextOrder, groupId)
+    nextOrder += 1
+    const sprintMirror = createTask(line, nextOrder, undefined, sourceTask.id)
+    nextOrder += 1
+
+    entries.push(sourceTask, sprintMirror)
+  }
+
+  return entries
 }
 
 function normalizeTasks(tasks: Task[], groups: Group[]): Task[] {
@@ -195,6 +219,40 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
       const fromOrder = state.tasks.length + 1
       const newTasks = lines.map((line, index) => createTask(line, fromOrder + index, groupId))
       const nextTasks = normalizeTasks([...state.tasks, ...newTasks], state.groups)
+      return withHistory(state, nextTasks, state.groups)
+    })
+  },
+
+  addTaskToSprint: (content, groupId) => {
+    const normalized = content.trim()
+    if (!normalized) {
+      return
+    }
+
+    set((state) => {
+      const nextTasks = normalizeTasks(
+        [...state.tasks, ...createSprintEntries([normalized], state.tasks.length + 1, groupId)],
+        state.groups,
+      )
+      return withHistory(state, nextTasks, state.groups)
+    })
+  },
+
+  addTasksToSprintFromPaste: (raw, groupId) => {
+    const lines = raw
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+
+    if (!lines.length) {
+      return
+    }
+
+    set((state) => {
+      const nextTasks = normalizeTasks(
+        [...state.tasks, ...createSprintEntries(lines, state.tasks.length + 1, groupId)],
+        state.groups,
+      )
       return withHistory(state, nextTasks, state.groups)
     })
   },

@@ -95,7 +95,7 @@ export function TaskBoard({
         <div ref={queueScrollRef} className="queue-scroll">
           <TaskColumn
             id="ungrouped"
-            title="Backlog"
+            title="Sprint"
             taskIds={ungroupedTaskIds}
             taskMap={taskMap}
             groupNameMap={groupNameMap}

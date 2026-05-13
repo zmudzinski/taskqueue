@@ -75,7 +75,7 @@ export function TaskColumn({
                   variant="ghost"
                   size="icon"
                   className="task-column-menu-trigger"
-                  aria-label="Backlog options"
+                  aria-label="Sprint options"
                   onClick={() => setBacklogMenuOpen((open) => !open)}
                 >
                   <EllipsisVertical size={14} />
@@ -89,7 +89,7 @@ export function TaskColumn({
                 Clear open
               </button>
               <button type="button" onClick={() => { onClearBacklog(); setBacklogMenuOpen(false) }}>
-                Clear backlog
+                Clear sprint
               </button>
             </DropdownMenu>
           ) : null}

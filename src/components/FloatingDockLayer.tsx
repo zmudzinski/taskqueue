@@ -1,4 +1,4 @@
-import type { Task } from '../types'
+import type { Group, Task } from '../types'
 import { FloatingModePanel } from './FloatingModePanel'
 
 type FloatingDockLayerProps = {
@@ -21,6 +21,9 @@ type FloatingDockLayerProps = {
   onStartDrag: () => void
   onSnap: () => void
   onDockCorner: (corner: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') => void
+  groups: Group[]
+  onCreateTask: (value: string, groupId?: string) => void
+  onCreateTasksFromPaste: (value: string, groupId?: string) => void
 }
 
 export function FloatingDockLayer({
@@ -43,6 +46,9 @@ export function FloatingDockLayer({
   onStartDrag,
   onSnap,
   onDockCorner,
+  groups,
+  onCreateTask,
+  onCreateTasksFromPaste,
 }: FloatingDockLayerProps) {
   return (
     <div
@@ -79,6 +85,9 @@ export function FloatingDockLayer({
         onStartDrag={onStartDrag}
         onSnap={onSnap}
         onDockCorner={onDockCorner}
+        groups={groups}
+        onCreateTask={onCreateTask}
+        onCreateTasksFromPaste={onCreateTasksFromPaste}
       />
     </div>
   )

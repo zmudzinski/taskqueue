@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import type { Task } from '../types'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import type { Group, Task } from '../types'
 import type { WindowCorner } from '../lib/window-manager'
-import { ArrowDownLeft, ArrowDownRight, ArrowUpLeft, ArrowUpRight, ChevronDown, ChevronUp, Pause, PictureInPicture2, Play } from 'lucide-react'
+import { ArrowDownLeft, ArrowDownRight, ArrowUpLeft, ArrowUpRight, ChevronDown, ChevronUp, Pause, PictureInPicture2, Play, Plus } from 'lucide-react'
 import { Button } from './ui/Button'
 import { Card } from './ui/Card'
 
@@ -21,6 +21,9 @@ type FloatingModePanelProps = {
   onStartDrag: () => void
   onSnap: () => void
   onDockCorner: (corner: WindowCorner) => void
+  groups: Group[]
+  onCreateTask: (value: string, groupId?: string) => void
+  onCreateTasksFromPaste: (value: string, groupId?: string) => void
 }
 
 export function FloatingModePanel({
@@ -39,6 +42,9 @@ export function FloatingModePanel({
   onStartDrag,
   onSnap,
   onDockCorner,
+  groups,
+  onCreateTask,
+  onCreateTasksFromPaste,
 }: FloatingModePanelProps) {
   const currentTask = tasks[0]
   const upcoming = tasks.slice(1)
@@ -56,6 +62,44 @@ export function FloatingModePanel({
       } as CSSProperties)
   const [dockMenuOpen, setDockMenuOpen] = useState(false)
   const dockMenuRef = useRef<HTMLDivElement | null>(null)
+  const [quickAddOpen, setQuickAddOpen] = useState(false)
+  const [quickAddValue, setQuickAddValue] = useState('')
+  const [quickAddGroupQuery, setQuickAddGroupQuery] = useState('')
+  const [quickAddGroupMenuOpen, setQuickAddGroupMenuOpen] = useState(false)
+  const quickAddTextareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const quickAddGroupRef = useRef<HTMLDivElement | null>(null)
+
+  const groupIdByName = useMemo(() => {
+    const lookup = new Map<string, string>()
+    for (const group of groups) {
+      lookup.set(group.name.trim().toLowerCase(), group.id)
+    }
+    return lookup
+  }, [groups])
+
+  const selectedGroupId = useMemo(() => {
+    const normalizedQuery = quickAddGroupQuery.trim().toLowerCase()
+    if (!normalizedQuery) {
+      return undefined
+    }
+
+    const exact = groupIdByName.get(normalizedQuery)
+    if (exact) {
+      return exact
+    }
+
+    const partial = groups.find((group) => group.name.toLowerCase().includes(normalizedQuery))
+    return partial?.id
+  }, [quickAddGroupQuery, groupIdByName, groups])
+
+  const filteredGroups = useMemo(() => {
+    const normalizedQuery = quickAddGroupQuery.trim().toLowerCase()
+    const source = normalizedQuery
+      ? groups.filter((group) => group.name.toLowerCase().includes(normalizedQuery))
+      : groups
+
+    return source.slice(0, 6)
+  }, [groups, quickAddGroupQuery])
 
   useEffect(() => {
     if (!dockMenuOpen) {
@@ -74,6 +118,37 @@ export function FloatingModePanel({
     return () => window.removeEventListener('mousedown', onClickOutside)
   }, [dockMenuOpen])
 
+  useEffect(() => {
+    if (!quickAddOpen) {
+      return
+    }
+
+    setDockMenuOpen(false)
+
+    const frameId = window.requestAnimationFrame(() => {
+      quickAddTextareaRef.current?.focus()
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
+  }, [quickAddOpen])
+
+  useEffect(() => {
+    if (!quickAddGroupMenuOpen) {
+      return
+    }
+
+    const onClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node | null
+      if (target && quickAddGroupRef.current?.contains(target)) {
+        return
+      }
+      setQuickAddGroupMenuOpen(false)
+    }
+
+    window.addEventListener('mousedown', onClickOutside)
+    return () => window.removeEventListener('mousedown', onClickOutside)
+  }, [quickAddGroupMenuOpen])
+
   const getGroupLabel = (task: Task): string => {
     if (task.groupId) {
       return groupNames.get(task.groupId) ?? 'Group'
@@ -85,6 +160,81 @@ export function FloatingModePanel({
       }
     }
     return 'Unassigned'
+  }
+
+  const resolveGroupForToken = (rawToken: string): string | undefined => {
+    const normalizedToken = rawToken.trim().toLowerCase()
+    if (!normalizedToken) {
+      return undefined
+    }
+
+    const exact = groupIdByName.get(normalizedToken)
+    if (exact) {
+      return exact
+    }
+
+    const partial = groups.find((group) => group.name.toLowerCase().includes(normalizedToken))
+    return partial?.id
+  }
+
+  const submitQuickAdd = () => {
+    const raw = quickAddValue.trim()
+    if (!raw) {
+      return
+    }
+
+    const lines = raw
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+
+    if (!lines.length) {
+      return
+    }
+
+    const hasInlineGroup = lines.some((line) => line.includes('\t'))
+
+    if (!hasInlineGroup) {
+      if (lines.length === 1) {
+        onCreateTask(lines[0], selectedGroupId)
+      } else {
+        onCreateTasksFromPaste(lines.join('\n'), selectedGroupId)
+      }
+    } else {
+      for (const line of lines) {
+        const tabIndex = line.indexOf('\t')
+        if (tabIndex === -1) {
+          onCreateTask(line, selectedGroupId)
+          continue
+        }
+
+        const content = line.slice(0, tabIndex).trim()
+        const inlineGroup = line.slice(tabIndex + 1).trim()
+        if (!content) {
+          continue
+        }
+
+        onCreateTask(content, resolveGroupForToken(inlineGroup) ?? selectedGroupId)
+      }
+    }
+
+    setQuickAddValue('')
+    setQuickAddGroupQuery('')
+    setQuickAddGroupMenuOpen(false)
+    setQuickAddOpen(false)
+  }
+
+  const onQuickAddKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      setQuickAddOpen(false)
+      return
+    }
+
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault()
+      submitQuickAdd()
+    }
   }
 
   return (
@@ -171,6 +321,16 @@ export function FloatingModePanel({
                 </div>
               ) : null}
             </div>
+            <Button
+              type="button"
+              variant="default"
+              size="icon"
+              className="titlebar-icon-btn floating-add-btn"
+              onClick={() => setQuickAddOpen(true)}
+              aria-label="Add task"
+            >
+              <Plus size={13} />
+            </Button>
           </div>
         </div>
 
@@ -222,6 +382,83 @@ export function FloatingModePanel({
             <p className="floating-empty">No next tasks</p>
           )}
         </div>
+
+        {quickAddOpen ? (
+          <div
+            className="floating-quick-add-backdrop"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                setQuickAddOpen(false)
+              }
+            }}
+          >
+            <div
+              className="floating-quick-add-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Quick add task"
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <header>
+                <h3>Quick Add</h3>
+                <Button type="button" variant="ghost" size="icon" className="titlebar-icon-btn" aria-label="Close quick add" onClick={() => { setQuickAddOpen(false); setQuickAddGroupMenuOpen(false) }}>
+                  ×
+                </Button>
+              </header>
+
+              <div className="floating-quick-add-main">
+                <textarea
+                  ref={quickAddTextareaRef}
+                  value={quickAddValue}
+                  onChange={(event) => setQuickAddValue(event.target.value)}
+                  onKeyDown={onQuickAddKeyDown}
+                  placeholder="One task per line. Optional: task + TAB + group"
+                />
+
+                <div className="floating-quick-add-controls">
+                  <div className="floating-quick-add-group" ref={quickAddGroupRef}>
+                    <input
+                      value={quickAddGroupQuery}
+                      placeholder="Search group..."
+                      onKeyDown={onQuickAddKeyDown}
+                      onChange={(event) => {
+                        setQuickAddGroupQuery(event.target.value)
+                        setQuickAddGroupMenuOpen(true)
+                      }}
+                      onFocus={() => setQuickAddGroupMenuOpen(true)}
+                    />
+
+                      {quickAddGroupMenuOpen && filteredGroups.length ? (
+                        <div className="floating-group-autocomplete" role="listbox" aria-label="Matching groups">
+                          {filteredGroups.map((group) => (
+                            <button
+                              key={group.id}
+                              type="button"
+                              className={`floating-group-option ${selectedGroupId === group.id ? 'is-selected' : ''}`}
+                              onMouseDown={(event) => {
+                                event.preventDefault()
+                                setQuickAddGroupQuery(group.name)
+                                setQuickAddGroupMenuOpen(false)
+                              }}
+                            >
+                              {group.name}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                  </div>
+
+                  <Button type="button" className="floating-quick-add-submit" onClick={submitQuickAdd}>
+                    Add
+                  </Button>
+                </div>
+              </div>
+
+              <p className="floating-quick-add-hint">Enter adds tasks, Shift+Enter adds a new line.</p>
+            </div>
+          </div>
+        ) : null}
       </Card>
     </section>
   )

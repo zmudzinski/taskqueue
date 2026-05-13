@@ -36,7 +36,11 @@
 
 :root[data-floating-contrast='light'] .app-shell.floating .titlebar,
 :root[data-floating-contrast='light'] .app-shell.floating .floating-dock-menu,
+:root[data-floating-contrast='light'] .app-shell.floating .floating-quick-add-modal,
 :root[data-floating-contrast='light'] .app-shell.floating .floating-dock-menu button,
+:root[data-floating-contrast='light'] .app-shell.floating .floating-quick-add-modal h3,
+:root[data-floating-contrast='light'] .app-shell.floating .floating-quick-add-modal label,
+:root[data-floating-contrast='light'] .app-shell.floating .floating-quick-add-hint,
 :root[data-floating-contrast='light'] .app-shell.floating .floating-task-text,
 :root[data-floating-contrast='light'] .app-shell.floating .task-origin-badge,
 :root[data-floating-contrast='light'] .app-shell.floating .floating-next-label,
@@ -47,6 +51,13 @@
 
 :root[data-floating-contrast='light'] .app-shell.floating .titlebar {
   background: rgba(15, 23, 42, 0.28);
+}
+
+:root[data-floating-contrast='light'] .app-shell.floating .floating-quick-add-modal,
+:root[data-floating-contrast='light'] .app-shell.floating .floating-quick-add-modal textarea,
+:root[data-floating-contrast='light'] .app-shell.floating .floating-quick-add-modal input,
+:root[data-floating-contrast='light'] .app-shell.floating .floating-group-autocomplete {
+  background: rgba(15, 23, 42, 0.88);
 }
 
 :root[data-floating-contrast='light'] .app-shell.floating .task-origin-badge {
@@ -87,6 +98,18 @@
 :root[data-theme='dark'] .settings-select,
 :root[data-theme='dark'] .floating-dock-menu {
   background: rgba(17, 24, 39, 0.96);
+}
+
+:root[data-theme='dark'] .floating-quick-add-modal,
+:root[data-theme='dark'] .floating-quick-add-modal textarea,
+:root[data-theme='dark'] .floating-quick-add-modal input,
+:root[data-theme='dark'] .floating-group-autocomplete {
+  background: rgba(17, 24, 39, 0.96);
+}
+
+:root[data-theme='dark'] .floating-add-btn,
+:root[data-theme='dark'] .floating-quick-add-submit {
+  color: #6ee7b7;
 }
 
 :root[data-theme='dark'] .ui-dropdown-content.backlog-actions-menu {
