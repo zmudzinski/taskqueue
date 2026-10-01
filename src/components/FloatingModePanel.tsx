@@ -17,6 +17,7 @@ type FloatingModePanelProps = {
   visibleNextCount: number
   isQueueExpanded: boolean
   onSwitchToFull: () => void
+  updateAvailable: boolean
   onToggleQueueExpanded: () => void
   onStartDrag: () => void
   onSnap: () => void
@@ -38,6 +39,7 @@ export function FloatingModePanel({
   visibleNextCount,
   isQueueExpanded,
   onSwitchToFull,
+  updateAvailable,
   onToggleQueueExpanded,
   onStartDrag,
   onSnap,
@@ -296,9 +298,10 @@ export function FloatingModePanel({
               className="titlebar-icon-btn titlebar-mode-btn"
               onClick={onSwitchToFull}
               aria-label="Switch to full window"
-              title="Full window"
+              title={updateAvailable ? 'Full window (update available)' : 'Full window'}
             >
               <Maximize2 size={13} />
+              {updateAvailable ? <span className="update-dot" aria-hidden="true" /> : null}
             </Button>
             <div className="floating-dock-wrap" ref={dockMenuRef}>
               <Button type="button" variant="ghost" size="icon" className="titlebar-icon-btn" onClick={() => setDockMenuOpen((open) => !open)} aria-label="Dock options">

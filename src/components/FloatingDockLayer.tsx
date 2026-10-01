@@ -17,6 +17,7 @@ type FloatingDockLayerProps = {
   onToggleTask: (taskId: string) => void
   onPromoteTask: (taskId: string) => void
   onSwitchToFull: () => void
+  updateAvailable: boolean
   onToggleQueueExpanded: () => void
   onStartDrag: () => void
   onSnap: () => void
@@ -42,6 +43,7 @@ export function FloatingDockLayer({
   onToggleTask,
   onPromoteTask,
   onSwitchToFull,
+  updateAvailable,
   onToggleQueueExpanded,
   onStartDrag,
   onSnap,
@@ -81,6 +83,7 @@ export function FloatingDockLayer({
         visibleNextCount={visibleNextCount}
         isQueueExpanded={floatingQueueExpanded}
         onSwitchToFull={onSwitchToFull}
+        updateAvailable={updateAvailable}
         onToggleQueueExpanded={onToggleQueueExpanded}
         onStartDrag={onStartDrag}
         onSnap={onSnap}

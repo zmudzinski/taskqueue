@@ -64,6 +64,7 @@ export function FullModeControls({
       <TitleBar
         mode={settings.mode}
         settingsOpen={settingsOpen}
+        updateAvailable={Boolean(updateVersion)}
         saveStatusLabel={lastSavedLabel}
         onStartDrag={onStartDrag}
         onToggleMode={onToggleMode}

@@ -619,6 +619,7 @@ function App() {
           onToggleTask={onToggleTaskAnimated}
           onPromoteTask={setFloatingPromotedTaskId}
           onSwitchToFull={() => setMode('full')}
+          updateAvailable={Boolean(updateVersion)}
           onToggleQueueExpanded={onToggleFloatingQueueExpanded}
           onStartDrag={() => {
             startWindowDragging().catch((error) => {

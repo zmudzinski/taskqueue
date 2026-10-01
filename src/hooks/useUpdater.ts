@@ -31,9 +31,20 @@ export function useUpdater(): UseUpdaterResult {
           setUpToDate(false)
         })
       })
-      .then((fn) => {
+      .then(async (fn) => {
         unlisten = fn
         console.log('[Updater] Listener registered successfully')
+        // The startup check in the backend can emit before this listener exists;
+        // ask once more so the badge still appears.
+        try {
+          const { invoke } = await import('@tauri-apps/api/core')
+          const version = await invoke<string | null>('check_for_update')
+          if (version) {
+            setUpdateVersion(version)
+          }
+        } catch (error) {
+          console.error('[Updater] Startup check failed:', error)
+        }
       })
       .catch((error) => {
         console.error('[Updater] Failed to listen for update events', error)

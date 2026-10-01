@@ -6,6 +6,7 @@ import { Button } from './ui/Button'
 type TitleBarProps = {
   mode: 'floating' | 'full'
   settingsOpen: boolean
+  updateAvailable: boolean
   saveStatusLabel: string
   onStartDrag: () => void
   onToggleMode: () => void
@@ -18,6 +19,7 @@ type TitleBarProps = {
 export function TitleBar({
   mode: _mode,
   settingsOpen,
+  updateAvailable,
   saveStatusLabel,
   onStartDrag,
   onToggleMode,
@@ -79,12 +81,14 @@ export function TitleBar({
         <Button
           variant={settingsOpen ? 'default' : 'ghost'}
           size="icon"
-          aria-label="Open settings"
+          aria-label={updateAvailable ? 'Open settings (update available)' : 'Open settings'}
+          title={updateAvailable ? 'Update available' : undefined}
           data-settings-trigger="true"
           className={`settings-trigger titlebar-icon-btn ${settingsOpen ? 'active' : ''}`}
           onClick={onToggleSettings}
         >
           <Settings2 />
+          {updateAvailable ? <span className="update-dot" aria-hidden="true" /> : null}
         </Button>
         <Button variant="destructive" size="icon" className="titlebar-icon-btn titlebar-close-btn" aria-label="Close window" onClick={onClose}>
           <X />
