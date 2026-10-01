@@ -1,5 +1,5 @@
 import type { MouseEvent } from 'react'
-import { Minus, Plus, Settings2, X } from 'lucide-react'
+import { Minimize2, Minus, Settings2, X } from 'lucide-react'
 import { LogoMark } from './LogoMark'
 import { Button } from './ui/Button'
 
@@ -10,7 +10,7 @@ type TitleBarProps = {
   onStartDrag: () => void
   onToggleMode: () => void
   onToggleSettings: () => void
-  onQuickAdd: () => void
+  onMinimize: () => void
   onClose: () => void
   onSnap: () => void
 }
@@ -22,7 +22,7 @@ export function TitleBar({
   onStartDrag,
   onToggleMode,
   onToggleSettings,
-  onQuickAdd,
+  onMinimize,
   onClose,
   onSnap,
 }: TitleBarProps) {
@@ -59,20 +59,20 @@ export function TitleBar({
         <Button
           variant="outline"
           size="icon"
-          className="titlebar-icon-btn titlebar-add-btn"
-          aria-label="Add task in progress"
-          title="Add task in progress"
-          onClick={onQuickAdd}
+          className="titlebar-icon-btn titlebar-mode-btn"
+          aria-label="Switch to mini window"
+          title="Mini window"
+          onClick={onToggleMode}
         >
-          <Plus />
+          <Minimize2 />
         </Button>
         <Button
           variant="ghost"
           size="icon"
           className="titlebar-icon-btn"
-          aria-label="Collapse to floating mode"
-          title="Collapse to floating mode"
-          onClick={onToggleMode}
+          aria-label="Minimize to Dock"
+          title="Minimize to Dock"
+          onClick={onMinimize}
         >
           <Minus />
         </Button>

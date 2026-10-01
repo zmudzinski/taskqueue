@@ -19,7 +19,7 @@
   background: var(--color-card);
 }
 
-:root[data-theme='dark'] .titlebar-add-btn {
+:root[data-theme='dark'] .titlebar-mode-btn {
   background: #1d62ea;
   border-color: #1d62ea;
   color: #fff;

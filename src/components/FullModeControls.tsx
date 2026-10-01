@@ -14,7 +14,7 @@ type FullModeControlsProps = {
   onStartDrag: () => void
   onToggleMode: () => void
   onToggleSettings: () => void
-  onQuickAdd: () => void
+  onMinimize: () => void
   onClose: () => void
   onSnap: () => void
   onOpacityChange: (opacity: number) => void
@@ -43,7 +43,7 @@ export function FullModeControls({
   onStartDrag,
   onToggleMode,
   onToggleSettings,
-  onQuickAdd,
+  onMinimize,
   onClose,
   onSnap,
   onOpacityChange,
@@ -68,7 +68,7 @@ export function FullModeControls({
         onStartDrag={onStartDrag}
         onToggleMode={onToggleMode}
         onToggleSettings={onToggleSettings}
-        onQuickAdd={onQuickAdd}
+        onMinimize={onMinimize}
         onClose={onClose}
         onSnap={onSnap}
       />

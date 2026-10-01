@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { Group, Task } from '../types'
 import type { WindowCorner } from '../lib/window-manager'
-import { ArrowDownLeft, ArrowDownRight, ArrowUpLeft, ArrowUpRight, ChevronDown, ChevronUp, Pause, PictureInPicture2, Play, Plus } from 'lucide-react'
+import { ArrowDownLeft, ArrowDownRight, ArrowUpLeft, ArrowUpRight, ChevronDown, ChevronUp, Maximize2, PictureInPicture2, Play, Plus } from 'lucide-react'
 import { Button } from './ui/Button'
 import { Card } from './ui/Card'
 
@@ -295,9 +295,10 @@ export function FloatingModePanel({
               size="icon"
               className="titlebar-icon-btn titlebar-mode-btn"
               onClick={onSwitchToFull}
-              aria-label="Switch to list view"
+              aria-label="Switch to full window"
+              title="Full window"
             >
-              <Pause size={13} />
+              <Maximize2 size={13} />
             </Button>
             <div className="floating-dock-wrap" ref={dockMenuRef}>
               <Button type="button" variant="ghost" size="icon" className="titlebar-icon-btn" onClick={() => setDockMenuOpen((open) => !open)} aria-label="Dock options">

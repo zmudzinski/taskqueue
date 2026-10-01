@@ -6,8 +6,6 @@ type UnifiedComposerProps = {
   placeholder?: string
   onCreateTask: (value: string, groupId?: string) => void
   onCreateTasksFromPaste?: (value: string, groupId?: string) => void
-  autoFocus?: boolean
-  onCancel?: () => void
 }
 
 export function UnifiedComposer({
@@ -15,8 +13,6 @@ export function UnifiedComposer({
   placeholder,
   onCreateTask,
   onCreateTasksFromPaste,
-  autoFocus,
-  onCancel,
 }: UnifiedComposerProps) {
   const [value, setValue] = useState('')
 
@@ -36,12 +32,6 @@ export function UnifiedComposer({
       event.preventDefault()
       submit()
     }
-
-    if (event.key === 'Escape' && onCancel) {
-      event.preventDefault()
-      setValue('')
-      onCancel()
-    }
   }
 
   const onPaste = (event: ClipboardEvent<HTMLInputElement>) => {
@@ -58,16 +48,10 @@ export function UnifiedComposer({
   return (
     <section className="composer">
       <input
-        autoFocus={autoFocus}
         value={value}
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={onKeyDown}
         onPaste={onPaste}
-        onBlur={() => {
-          if (!value.trim()) {
-            onCancel?.()
-          }
-        }}
         placeholder={placeholder ?? 'Add task...'}
       />
 

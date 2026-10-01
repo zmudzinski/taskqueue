@@ -464,3 +464,71 @@
   }
 }
 
+
+/* Mini window is only ~170px tall: cover the whole window (the shell's
+   backdrop-filter makes it the containing block) and keep the modal compact. */
+.floating-quick-add-backdrop {
+  position: fixed;
+  border-radius: var(--window-radius);
+  padding: 6px;
+}
+
+.floating-quick-add-modal {
+  width: 100%;
+  padding: 8px 10px 10px;
+  background: var(--color-card);
+}
+
+.floating-quick-add-modal header {
+  margin-bottom: 6px;
+}
+
+.floating-quick-add-modal header .titlebar-icon-btn {
+  width: 24px;
+  height: 24px;
+}
+
+.floating-quick-add-modal textarea {
+  min-height: 52px;
+  max-height: 64px;
+  resize: none;
+}
+
+@media (max-height: 200px) {
+  .floating-quick-add-hint {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .floating-quick-add-controls {
+    flex-direction: row;
+    min-height: 0;
+  }
+
+  .floating-quick-add-group {
+    flex: 1;
+  }
+
+  /* No room below the input in the mini window: open the list upwards. */
+  .floating-group-autocomplete {
+    top: auto;
+    bottom: calc(100% + 4px);
+  }
+
+  .floating-quick-add-modal textarea {
+    min-height: 40px;
+  }
+}
+
+/* Keep the group list inside the mini window; it scrolls on its own. */
+.floating-group-autocomplete {
+  max-height: 86px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  background: var(--color-card);
+}
+
+.floating-group-option {
+  min-height: 26px;
+}

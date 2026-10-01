@@ -50,8 +50,6 @@ type TaskBoardProps = {
   onCreateTaskInGroup: (value: string, groupId?: string) => void
   onCreateTasksFromPaste: (value: string, groupId?: string) => void
   onCreateGroup: (name: string) => void
-  sprintComposerOpen: boolean
-  onCloseSprintComposer: () => void
 }
 
 export function TaskBoard({
@@ -88,8 +86,6 @@ export function TaskBoard({
   onCreateTaskInGroup,
   onCreateTasksFromPaste,
   onCreateGroup,
-  sprintComposerOpen,
-  onCloseSprintComposer,
 }: TaskBoardProps) {
   const groupColorMap = useMemo(
     () => new Map(groups.map((group, index) => [group.id, resolveGroupColor(group, index)])),
@@ -127,8 +123,6 @@ export function TaskBoard({
             onClearOpenBacklog={onClearOpenBacklog}
             onCreateTask={onCreateTaskInGroup}
             onCreateTasksFromPaste={onCreateTasksFromPaste}
-            composerOpen={sprintComposerOpen}
-            onComposerClose={onCloseSprintComposer}
           />
 
           <SortableContext

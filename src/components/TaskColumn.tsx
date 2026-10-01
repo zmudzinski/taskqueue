@@ -30,8 +30,6 @@ type TaskColumnProps = {
   onClearOpenBacklog?: () => void
   onCreateTask?: (value: string, groupId?: string) => void
   onCreateTasksFromPaste?: (value: string, groupId?: string) => void
-  composerOpen?: boolean
-  onComposerClose?: () => void
 }
 
 export function TaskColumn({
@@ -56,14 +54,12 @@ export function TaskColumn({
   onClearOpenBacklog,
   onCreateTask,
   onCreateTasksFromPaste,
-  composerOpen = true,
-  onComposerClose,
 }: TaskColumnProps) {
   const [backlogMenuOpen, setBacklogMenuOpen] = useState(false)
   const { setNodeRef } = useDroppable({ id: `container-${id}` })
   const remainingCount = taskIds.length
   const isBacklogColumn = id === 'ungrouped'
-  const showComposer = Boolean(onCreateTask) && composerOpen
+  const showComposer = Boolean(onCreateTask)
 
   return (
     <section
@@ -165,8 +161,6 @@ export function TaskColumn({
             <div className="task-column-composer">
               <UnifiedComposer
                 groupId={isBacklogColumn ? undefined : id}
-                autoFocus={Boolean(onComposerClose)}
-                onCancel={onComposerClose}
                 placeholder={isBacklogColumn ? 'Add task in progress...' : 'Add task to group...'}
                 onCreateTask={onCreateTask}
                 onCreateTasksFromPaste={onCreateTasksFromPaste}

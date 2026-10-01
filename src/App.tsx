@@ -18,6 +18,7 @@ import {
   dockWindowToEdge,
   dockWindowToCorner,
   focusWindow,
+  minimizeWindow,
   snapWindowToCorner,
   startWindowDragging,
 } from './lib/window-manager'
@@ -99,7 +100,6 @@ function App() {
   const [overTaskId, setOverTaskId] = useState<string | null>(null)
   const [overPosition, setOverPosition] = useState<'before' | 'after'>('after')
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [sprintComposerOpen, setSprintComposerOpen] = useState(false)
   const overTaskIdRef = useRef<string | null>(null)
   const overPositionRef = useRef<'before' | 'after'>('after')
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
@@ -568,9 +568,10 @@ function App() {
           }}
           onToggleMode={toggleMode}
           onToggleSettings={() => setSettingsOpen((value) => !value)}
-          onQuickAdd={() => {
-            setSprintComposerOpen(true)
-            queueScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+          onMinimize={() => {
+            minimizeWindow().catch((error) => {
+              console.error('Could not minimize window', error)
+            })
           }}
           onClose={() => {
             setConfirmRequest({
@@ -673,8 +674,6 @@ function App() {
           onCreateTaskInGroup={addTask}
           onCreateTasksFromPaste={addTasksFromPaste}
           onCreateGroup={createGroup}
-          sprintComposerOpen={sprintComposerOpen}
-          onCloseSprintComposer={() => setSprintComposerOpen(false)}
         />
       )}
 

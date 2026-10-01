@@ -268,13 +268,13 @@
   background: rgba(239, 68, 68, 0.2);
 }
 
-.titlebar-add-btn {
+.titlebar-mode-btn {
   background: var(--color-accent);
   border-color: var(--color-accent);
   color: #fff;
 }
 
-.titlebar-add-btn:hover {
+.titlebar-mode-btn:hover {
   background: #0a45e0;
   border-color: #0a45e0;
   color: #fff;
