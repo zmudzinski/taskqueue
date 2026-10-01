@@ -1,19 +1,56 @@
+@font-face {
+  font-family: 'Supreme';
+  src: url('./assets/fonts/Supreme-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Supreme';
+  src: url('./assets/fonts/Supreme-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Supreme';
+  src: url('./assets/fonts/Supreme-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Supreme';
+  src: url('./assets/fonts/Supreme-800.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  --color-surface-rgb: 243, 244, 246;
-  --surface-alpha: 0.84;
+  --color-surface-rgb: 226, 231, 240;
+  --surface-alpha: 0.9;
+  --color-card: #ffffff;
+  --window-radius: 14px;
   --color-border-rgb: 148, 163, 184;
   --color-border: rgba(var(--color-border-rgb), 0.36);
   --color-text: #0f172a;
   --color-muted: #475569;
-  --color-accent: #2563eb;
-  --color-accent-rgb: 37, 99, 235;
+  --color-accent: #1d62ea;
+  --color-accent-rgb: 29, 98, 234;
   --color-accent-soft: rgba(var(--color-accent-rgb), 0.14);
-  font-family: 'SF Pro Text', 'Avenir Next', 'Manrope', 'Segoe UI', sans-serif;
+  font-family: 'Supreme', 'SF Pro Text', 'Avenir Next', 'Segoe UI', sans-serif;
+  font-weight: 500;
+  -webkit-font-smoothing: antialiased;
 }
 
 :root[data-theme='dark'] {
-  --color-surface-rgb: 17, 24, 39;
+  --color-surface-rgb: 9, 13, 26;
   --surface-alpha: 0.95;
+  --color-card: #151c2e;
   --color-border-rgb: 100, 116, 139;
   --color-border: rgba(var(--color-border-rgb), 0.4);
   --color-text: #e5e7eb;

@@ -18,7 +18,6 @@ import {
   dockWindowToEdge,
   dockWindowToCorner,
   focusWindow,
-  minimizeWindow,
   snapWindowToCorner,
   startWindowDragging,
 } from './lib/window-manager'
@@ -71,6 +70,7 @@ function App() {
     createGroup,
     removeGroup,
     renameGroup,
+    setGroupColor,
     toggleGroupCollapsed,
     reorderGroup,
     reorderTask,
@@ -99,6 +99,7 @@ function App() {
   const [overTaskId, setOverTaskId] = useState<string | null>(null)
   const [overPosition, setOverPosition] = useState<'before' | 'after'>('after')
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [sprintComposerOpen, setSprintComposerOpen] = useState(false)
   const overTaskIdRef = useRef<string | null>(null)
   const overPositionRef = useRef<'before' | 'after'>('after')
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
@@ -567,10 +568,9 @@ function App() {
           }}
           onToggleMode={toggleMode}
           onToggleSettings={() => setSettingsOpen((value) => !value)}
-          onMinimize={() => {
-            minimizeWindow().catch((error) => {
-              console.error('Could not minimize window', error)
-            })
+          onQuickAdd={() => {
+            setSprintComposerOpen(true)
+            queueScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
           }}
           onClose={() => {
             setConfirmRequest({
@@ -668,10 +668,13 @@ function App() {
           onClearOpenBacklog={clearOpenBacklogMirrors}
           onToggleGroupCollapsed={toggleGroupCollapsed}
           onRenameGroup={renameGroup}
+          onSetGroupColor={setGroupColor}
           onDeleteGroup={(groupId) => requestDeleteGroup(groupId, groupNameMap.get(groupId) ?? 'this group', removeGroup)}
           onCreateTaskInGroup={addTask}
           onCreateTasksFromPaste={addTasksFromPaste}
           onCreateGroup={createGroup}
+          sprintComposerOpen={sprintComposerOpen}
+          onCloseSprintComposer={() => setSprintComposerOpen(false)}
         />
       )}
 

@@ -2,15 +2,19 @@ import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { Group, Task } from '../types'
+import { groupColorStyle } from '../lib/group-colors'
+import type { Group, GroupColor, Task } from '../types'
+import { GroupColorPicker } from './GroupColorPicker'
 import { TaskColumn } from './TaskColumn'
 import { Button } from './ui/Button'
 
 type SortableGroupSectionProps = {
   group: Group
+  color: GroupColor
   taskIds: string[]
   taskMap: Map<string, Task>
   groupNameMap: Map<string, string>
+  groupColorMap: Map<string, GroupColor>
   backlogMirrorBySourceId: Map<string, string>
   doneCount: number
   totalCount: number
@@ -24,6 +28,7 @@ type SortableGroupSectionProps = {
   onRemoveFromBacklog: (taskId: string) => void
   onToggleGroupCollapsed: (groupId: string) => void
   onRenameGroup: (groupId: string, name: string) => void
+  onSetGroupColor: (groupId: string, color: GroupColor) => void
   onDeleteGroup: (groupId: string) => void
   onCreateTaskInGroup: (value: string, groupId?: string) => void
   onCreateTasksFromPaste: (value: string, groupId?: string) => void
@@ -31,9 +36,11 @@ type SortableGroupSectionProps = {
 
 export function SortableGroupSection({
   group,
+  color,
   taskIds,
   taskMap,
   groupNameMap,
+  groupColorMap,
   backlogMirrorBySourceId,
   doneCount,
   totalCount,
@@ -47,6 +54,7 @@ export function SortableGroupSection({
   onRemoveFromBacklog,
   onToggleGroupCollapsed,
   onRenameGroup,
+  onSetGroupColor,
   onDeleteGroup,
   onCreateTaskInGroup,
   onCreateTasksFromPaste,
@@ -62,10 +70,11 @@ export function SortableGroupSection({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.55 : 1,
+    ...groupColorStyle(color),
   }
 
   return (
-    <section ref={setNodeRef} style={style} className="group-block" data-group-id={group.id}>
+    <section ref={setNodeRef} style={style} className="group-block" data-group-id={group.id} data-color={color}>
       <header
         className="group-header"
       >
@@ -96,6 +105,7 @@ export function SortableGroupSection({
           />
         ) : (
           <div className="group-name-row">
+            <GroupColorPicker color={color} onChange={(next) => onSetGroupColor(group.id, next)} />
             <button
               type="button"
               className="group-name"
@@ -148,6 +158,7 @@ export function SortableGroupSection({
         taskIds={taskIds}
         taskMap={taskMap}
         groupNameMap={groupNameMap}
+        groupColorMap={groupColorMap}
         backlogMirrorBySourceId={backlogMirrorBySourceId}
         completingTaskIds={completingTaskIds}
         overTaskId={overTaskId}

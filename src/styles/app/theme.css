@@ -10,10 +10,23 @@
 
 :root[data-theme='dark'] .ui-button,
 :root[data-theme='dark'] .ui-card,
-:root[data-theme='dark'] .task-column-shell,
 :root[data-theme='dark'] .settings-menu,
 :root[data-theme='dark'] .confirm-dialog-panel {
   background: rgba(17, 24, 39, 0.92);
+}
+
+:root[data-theme='dark'] .task-column-shell {
+  background: var(--color-card);
+}
+
+:root[data-theme='dark'] .titlebar-add-btn {
+  background: #1d62ea;
+  border-color: #1d62ea;
+  color: #fff;
+}
+
+:root[data-theme='dark'] .group-header .ui-button {
+  background: transparent;
 }
 
 :root[data-theme='dark'] .floating-player {
@@ -74,14 +87,9 @@
   background: rgba(148, 163, 184, 0.12);
 }
 
-:root[data-theme='dark'] .task-backlog-btn.is-add {
-  background: #334155;
-  color: #e2e8f0;
-}
-
 :root[data-theme='dark'] .task-backlog-btn.is-remove {
-  background: #2f8a5f;
-  color: #e2e8f0;
+  background: rgba(108, 200, 146, 0.16);
+  color: #6cc892;
 }
 
 :root[data-theme='dark'] .settings-trigger {

@@ -8,7 +8,9 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import type { Group, Task } from '../types'
+import { useMemo } from 'react'
+import { resolveGroupColor } from '../lib/group-colors'
+import type { Group, GroupColor, Task } from '../types'
 import { AddGroupComposer } from './AddGroupComposer'
 import { DragPreview } from './DragPreview'
 import { SortableGroupSection } from './SortableGroupSection'
@@ -43,10 +45,13 @@ type TaskBoardProps = {
   onClearOpenBacklog: () => void
   onToggleGroupCollapsed: (groupId: string) => void
   onRenameGroup: (groupId: string, name: string) => void
+  onSetGroupColor: (groupId: string, color: GroupColor) => void
   onDeleteGroup: (groupId: string) => void
   onCreateTaskInGroup: (value: string, groupId?: string) => void
   onCreateTasksFromPaste: (value: string, groupId?: string) => void
   onCreateGroup: (name: string) => void
+  sprintComposerOpen: boolean
+  onCloseSprintComposer: () => void
 }
 
 export function TaskBoard({
@@ -78,11 +83,19 @@ export function TaskBoard({
   onClearOpenBacklog,
   onToggleGroupCollapsed,
   onRenameGroup,
+  onSetGroupColor,
   onDeleteGroup,
   onCreateTaskInGroup,
   onCreateTasksFromPaste,
   onCreateGroup,
+  sprintComposerOpen,
+  onCloseSprintComposer,
 }: TaskBoardProps) {
+  const groupColorMap = useMemo(
+    () => new Map(groups.map((group, index) => [group.id, resolveGroupColor(group, index)])),
+    [groups],
+  )
+
   return (
     <DndContext
       sensors={sensors}
@@ -95,10 +108,11 @@ export function TaskBoard({
         <div ref={queueScrollRef} className="queue-scroll">
           <TaskColumn
             id="ungrouped"
-            title="Sprint"
+            title="In progress"
             taskIds={ungroupedTaskIds}
             taskMap={taskMap}
             groupNameMap={groupNameMap}
+            groupColorMap={groupColorMap}
             backlogMirrorBySourceId={backlogMirrorBySourceId}
             completingTaskIds={completingTaskIds}
             overTaskId={overTaskId}
@@ -111,6 +125,10 @@ export function TaskBoard({
             onClearBacklog={onClearBacklog}
             onClearCompletedBacklog={onClearCompletedBacklog}
             onClearOpenBacklog={onClearOpenBacklog}
+            onCreateTask={onCreateTaskInGroup}
+            onCreateTasksFromPaste={onCreateTasksFromPaste}
+            composerOpen={sprintComposerOpen}
+            onComposerClose={onCloseSprintComposer}
           />
 
           <SortableContext
@@ -122,9 +140,11 @@ export function TaskBoard({
               <SortableGroupSection
                 key={group.id}
                 group={group}
+                color={groupColorMap.get(group.id) ?? 'violet'}
                 taskIds={groupTaskIds.get(group.id) ?? []}
                 taskMap={taskMap}
                 groupNameMap={groupNameMap}
+                groupColorMap={groupColorMap}
                 backlogMirrorBySourceId={backlogMirrorBySourceId}
                 doneCount={groupProgress.get(group.id)?.done ?? 0}
                 totalCount={groupProgress.get(group.id)?.total ?? 0}
@@ -138,6 +158,7 @@ export function TaskBoard({
                 onRemoveFromBacklog={onRemoveFromBacklog}
                 onToggleGroupCollapsed={onToggleGroupCollapsed}
                 onRenameGroup={onRenameGroup}
+                onSetGroupColor={onSetGroupColor}
                 onDeleteGroup={onDeleteGroup}
                 onCreateTaskInGroup={onCreateTaskInGroup}
                 onCreateTasksFromPaste={onCreateTasksFromPaste}

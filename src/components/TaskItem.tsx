@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { Task } from '../types'
+import { ArrowDown, ArrowUp, X } from 'lucide-react'
+import { groupColorStyle } from '../lib/group-colors'
+import type { GroupColor, Task } from '../types'
 
 type TaskItemProps = {
   task: Task
   isCompleting?: boolean
   sourceGroupName?: string
+  sourceGroupColor?: GroupColor
   backlogActionMode?: 'add' | 'remove'
   dropIndicator?: 'before' | 'after'
   onToggle: (taskId: string) => void
@@ -19,6 +22,7 @@ export function TaskItem({
   task,
   isCompleting,
   sourceGroupName,
+  sourceGroupColor,
   backlogActionMode,
   dropIndicator,
   onToggle,
@@ -69,7 +73,7 @@ export function TaskItem({
       </button>
 
       <div className="task-body">
-        {sourceGroupName ? <span className="task-origin-badge">{sourceGroupName}</span> : null}
+        {sourceGroupName ? <span className="task-origin-badge" data-color={sourceGroupColor} style={groupColorStyle(sourceGroupColor)}>{sourceGroupName}</span> : null}
         {editing ? (
           <input
             autoFocus
@@ -108,18 +112,22 @@ export function TaskItem({
 
       <div className="task-actions">
         <button className="task-delete" type="button" onClick={() => onDelete(task.id)} aria-label="Delete task">
-          ×
+          <X size={13} strokeWidth={2.25} />
         </button>
 
         {backlogActionMode && onBacklogAction ? (
           <button
             className={`task-action task-backlog-btn ${backlogActionMode === 'remove' ? 'is-remove' : 'is-add'}`}
             type="button"
-            aria-label={backlogActionMode === 'remove' ? 'Remove from sprint' : 'Add to sprint'}
-            data-tooltip={backlogActionMode === 'remove' ? 'Remove from sprint' : 'Add to sprint'}
+            aria-label={backlogActionMode === 'remove' ? 'Remove from in progress' : 'Add to in progress'}
+            data-tooltip={backlogActionMode === 'remove' ? 'Remove from in progress' : 'Add to in progress'}
             onClick={onBacklogAction}
           >
-            {backlogActionMode === 'remove' ? '↓' : '↑'}
+            {backlogActionMode === 'remove' ? (
+              <ArrowDown size={12} strokeWidth={2.5} />
+            ) : (
+              <ArrowUp size={12} strokeWidth={2.5} />
+            )}
           </button>
         ) : null}
       </div>

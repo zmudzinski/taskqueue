@@ -8,10 +8,14 @@ export type Task = {
   createdAt: number
 }
 
+// Preset id from GROUP_COLORS or a custom '#rrggbb' hex.
+export type GroupColor = string
+
 export type Group = {
   id: string
   name: string
   collapsed: boolean
+  color?: GroupColor
 }
 
 export type ViewMode = 'floating' | 'full'

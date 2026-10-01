@@ -1,5 +1,6 @@
 import type { MouseEvent } from 'react'
-import { Minus, Play, Settings2, X } from 'lucide-react'
+import { Minus, Plus, Settings2, X } from 'lucide-react'
+import { LogoMark } from './LogoMark'
 import { Button } from './ui/Button'
 
 type TitleBarProps = {
@@ -9,7 +10,7 @@ type TitleBarProps = {
   onStartDrag: () => void
   onToggleMode: () => void
   onToggleSettings: () => void
-  onMinimize: () => void
+  onQuickAdd: () => void
   onClose: () => void
   onSnap: () => void
 }
@@ -21,7 +22,7 @@ export function TitleBar({
   onStartDrag,
   onToggleMode,
   onToggleSettings,
-  onMinimize,
+  onQuickAdd,
   onClose,
   onSnap,
 }: TitleBarProps) {
@@ -45,17 +46,34 @@ export function TitleBar({
   return (
     <header className="titlebar" onMouseDown={handleHeaderMouseDown} onDoubleClick={handleHeaderDoubleClick}>
       <div className="titlebar-left">
-        <strong>TASKQUEUE</strong>
-        <span>{saveStatusLabel}</span>
+        <LogoMark className="titlebar-logo" />
+        <div className="titlebar-brand">
+          <strong>TaskQueue</strong>
+          <span>{saveStatusLabel}</span>
+        </div>
       </div>
 
       <div className="titlebar-drag-space" />
 
       <div className="titlebar-right" data-no-drag="true">
-        <Button variant="outline" size="icon" className="titlebar-icon-btn titlebar-mode-btn" aria-label="Switch mode" onClick={onToggleMode}>
-          <Play />
+        <Button
+          variant="outline"
+          size="icon"
+          className="titlebar-icon-btn titlebar-add-btn"
+          aria-label="Add task in progress"
+          title="Add task in progress"
+          onClick={onQuickAdd}
+        >
+          <Plus />
         </Button>
-        <Button variant="ghost" size="icon" className="titlebar-icon-btn" aria-label="Minimize window" onClick={onMinimize}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="titlebar-icon-btn"
+          aria-label="Collapse to floating mode"
+          title="Collapse to floating mode"
+          onClick={onToggleMode}
+        >
           <Minus />
         </Button>
         <Button

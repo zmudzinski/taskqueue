@@ -89,9 +89,9 @@
 
 .task-column-shell {
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
-  background: rgba(255, 255, 255, 0.84);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+  background: var(--color-card);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 6px 16px rgba(15, 23, 42, 0.05);
   overflow: hidden;
 }
 
@@ -121,7 +121,7 @@
   border: 0;
   background: transparent;
   padding: 0;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .composer input::placeholder {
@@ -182,7 +182,7 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  padding: 8px 10px;
+  padding: 7px 10px;
   transition: transform 220ms ease, opacity 220ms ease, background 140ms ease;
 }
 
@@ -272,8 +272,8 @@
 }
 
 .task-check.checked {
-  border-color: #111827;
-  background: #111827;
+  border-color: var(--color-accent);
+  background: var(--color-accent);
   color: #fff;
   transform: scale(1.03);
 }
@@ -290,6 +290,7 @@
   background: rgba(148, 163, 184, 0.1);
   padding: 1px 7px;
   font-size: 10px;
+  line-height: 14px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--color-muted);
@@ -302,8 +303,8 @@
   background: transparent;
   color: var(--color-text);
   padding: 0;
-  font-size: 14px;
-  line-height: 1.35;
+  font-size: 13.5px;
+  line-height: 18px;
 }
 
 .task-item.is-done .task-content {
@@ -325,6 +326,10 @@
   border-radius: 7px;
   width: 22px;
   height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0;
   transition: opacity 130ms ease, background 130ms ease, color 130ms ease;
 }
@@ -332,26 +337,29 @@
 .task-backlog-btn {
   opacity: 1;
   border-radius: 999px;
+  flex: 0 0 22px;
 }
 
 .task-backlog-btn.is-add {
-  background: #e5e7eb;
-  color: #111827;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-muted) 45%, transparent);
+  color: var(--color-muted);
 }
 
 .task-backlog-btn.is-add:hover {
-  background: #d1d5db;
-  color: #0f172a;
+  background: rgba(var(--color-accent-rgb), 0.1);
+  border-color: rgba(var(--color-accent-rgb), 0.5);
+  color: var(--color-accent);
 }
 
 .task-backlog-btn.is-remove {
-  background: #34a267;
-  color: #fff;
+  background: #e1f4e9;
+  color: #23804c;
 }
 
 .task-backlog-btn.is-remove:hover {
-  background: #2d925d;
-  color: #fff;
+  background: #cdebd9;
+  color: #1b6a3e;
 }
 
 .task-action[data-tooltip] {
@@ -478,9 +486,6 @@
   color: var(--color-text);
 }
 
-.add-group-block .task-column-title {
-  padding-bottom: 6px;
-}
 
 .drag-preview {
   width: min(620px, calc(100vw - 32px));
@@ -549,3 +554,259 @@
   background: rgba(148, 163, 184, 0.08);
 }
 
+
+/* Group colors: pastel tint + saturated foreground per palette entry. */
+[data-color='sprint'] { --group-dot: #5297fa; --group-fg-light: #1d5fe0; }
+
+[data-color] {
+  --group-fg: var(--group-fg-light);
+  --group-bg: color-mix(in srgb, var(--group-dot) 20%, #fff);
+}
+
+:root[data-theme='dark'] [data-color] {
+  --group-bg: color-mix(in srgb, var(--group-dot) 18%, transparent);
+  --group-fg: var(--group-dot);
+}
+
+.task-column[data-color] > .task-column-title .task-column-title-main,
+.group-block[data-color] .group-name {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 9px;
+  background: var(--group-bg);
+  color: var(--group-fg);
+  letter-spacing: 0.12em;
+  font-weight: 700;
+}
+
+.task-column[data-color] > .task-column-shell,
+.group-block[data-color] .task-column-shell {
+  box-shadow:
+    inset 3px 0 0 var(--group-dot),
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 6px 16px rgba(15, 23, 42, 0.05);
+}
+
+.task-origin-badge[data-color] {
+  border-color: transparent;
+  background: var(--group-bg);
+  color: var(--group-fg);
+  font-weight: 700;
+}
+
+.group-name-row {
+  justify-content: flex-start;
+}
+
+.group-name-row > .group-progress-badge {
+  margin-left: auto;
+}
+
+.group-color-dot {
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border-radius: 999px;
+  border: 2px solid var(--color-card);
+  background: var(--group-dot);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--group-dot) 60%, transparent);
+  cursor: pointer;
+}
+
+.ui-dropdown-content.group-color-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: -6px;
+  z-index: 50;
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.14);
+}
+
+.group-color-swatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 999px;
+  border: 0;
+  background: var(--group-dot);
+  cursor: pointer;
+}
+
+.group-color-swatch.is-active {
+  box-shadow: 0 0 0 2px var(--color-card), 0 0 0 3.5px var(--group-fg);
+}
+
+/* Shared alignment grid: rows, composers and headers line up on the same columns.
+   Left padding clears the 3px group color stripe. */
+.task-column-shell {
+  --row-pad-l: 13px;
+  --row-pad-r: 10px;
+}
+
+.task-column-shell .task-item {
+  padding: 7px var(--row-pad-r) 7px var(--row-pad-l);
+}
+
+.task-column-shell .task-empty {
+  padding: 10px var(--row-pad-r) 10px calc(var(--row-pad-l) + 48px);
+}
+
+.task-column-shell .composer {
+  grid-template-columns: 12px 20px minmax(0, 1fr) 22px;
+  gap: 8px;
+  align-items: center;
+  padding: 7px var(--row-pad-r) 7px var(--row-pad-l);
+}
+
+.task-column-shell .composer input {
+  grid-column: 3;
+  height: 22px;
+  outline: none;
+}
+
+.task-column-shell .composer-add {
+  grid-column: 4;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  border-radius: 999px;
+}
+
+.task-column-shell .composer:focus-within {
+  background: rgba(var(--color-accent-rgb), 0.05);
+}
+
+.task-column-title,
+.group-header {
+  min-height: 26px;
+  margin: 0 0 6px;
+  padding: 0 8px;
+}
+
+.group-header {
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+}
+
+.group-header > .ui-button:first-child {
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
+}
+
+.group-header-actions {
+  gap: 0;
+  margin-right: -2px;
+}
+
+.group-header-actions .ui-button {
+  width: 26px;
+  height: 26px;
+}
+
+.task-column-title > .ui-dropdown {
+  margin-right: 2px;
+}
+
+.task-column-menu-trigger {
+  width: 22px;
+  height: 22px;
+}
+
+.task-column-shell .group-composer input {
+  grid-column: 1 / 4;
+}
+
+.group-color-swatches {
+  display: grid;
+  grid-template-columns: repeat(6, 20px);
+  gap: 8px;
+}
+
+.group-color-custom {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+.group-color-native {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.15);
+  background-image: conic-gradient(#f2867a, #e9c34a, #6cc892, #6db8f2, #a48bf5, #f08bb6, #f2867a);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.group-color-native[style*='#'] {
+  background-image: none;
+}
+
+.group-color-native input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.group-color-hex {
+  width: 100%;
+  min-width: 0;
+  height: 22px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  padding: 0 6px;
+  outline: none;
+}
+
+.group-color-hex:focus {
+  border-color: rgba(var(--color-accent-rgb), 0.6);
+}
+
+.group-color-hex[aria-invalid='true'] {
+  border-color: rgba(239, 68, 68, 0.6);
+}
+
+.group-color-apply {
+  height: 22px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 8px;
+  background: var(--color-accent);
+  color: #fff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.group-color-apply:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.group-name-row > .ui-dropdown {
+  display: flex;
+  align-items: center;
+  height: 22px;
+}
+
+.group-color-dot {
+  display: block;
+  flex: 0 0 auto;
+}

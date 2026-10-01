@@ -1,10 +1,11 @@
 import { create } from 'zustand'
-import type { AppSettings, EdgeDockSide, Group, PersistedState, Task, ThemeMode, ViewMode } from '../types'
+import type { AppSettings, EdgeDockSide, Group, GroupColor, PersistedState, Task, ThemeMode, ViewMode } from '../types'
+import { pickNextGroupColor } from '../lib/group-colors'
 
 const defaultSettings: AppSettings = {
   opacity: 0.78,
-  windowWidth: 520,
-  windowHeight: 420,
+  windowWidth: 440,
+  windowHeight: 560,
   floatingWindowWidth: 390,
   floatingWindowHeight: 168,
   floatingVisibleNextCount: 3,
@@ -41,6 +42,7 @@ type QueueStore = {
   createGroup: (name: string) => void
   removeGroup: (id: string) => void
   renameGroup: (id: string, name: string) => void
+  setGroupColor: (id: string, color: GroupColor) => void
   toggleGroupCollapsed: (id: string) => void
   reorderGroup: (groupId: string, targetGroupId?: string) => void
   reorderTask: (
@@ -367,7 +369,10 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
     }
 
     set((state) => {
-      const nextGroups = [...state.groups, { id: crypto.randomUUID(), name: normalized, collapsed: false }]
+      const nextGroups = [
+        ...state.groups,
+        { id: crypto.randomUUID(), name: normalized, collapsed: false, color: pickNextGroupColor(state.groups) },
+      ]
       const nextTasks = normalizeTasks(state.tasks, nextGroups)
       return withHistory(state, nextTasks, nextGroups)
     })
@@ -401,6 +406,13 @@ export const useTaskQueueStore = create<QueueStore>((set, get) => ({
 
     set((state) => {
       const nextGroups = state.groups.map((group) => (group.id === id ? { ...group, name: normalized } : group))
+      return withHistory(state, state.tasks, nextGroups)
+    })
+  },
+
+  setGroupColor: (id, color) => {
+    set((state) => {
+      const nextGroups = state.groups.map((group) => (group.id === id ? { ...group, color } : group))
       return withHistory(state, state.tasks, nextGroups)
     })
   },
